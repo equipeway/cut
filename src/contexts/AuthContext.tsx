@@ -1,7 +1,4 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { getUserByEmail, User as DBUser } from '../lib/database';
-import { isSupabaseConfigured } from '../lib/supabase';
-import bcrypt from 'bcryptjs';
 
 interface User {
   id: string;
@@ -46,112 +43,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadSavedUser = async () => {
-      const savedUser = localStorage.getItem('terramail_user');
-      if (savedUser) {
-        try {
-          const userData = JSON.parse(savedUser);
-          
-          // Se Supabase está configurado, validar se o usuário existe no banco
-          if (isSupabaseConfigured()) {
-            const dbUser = await getUserByEmail(userData.email);
-            if (!dbUser || dbUser.id !== userData.id) {
-              // Usuário não existe no Supabase ou ID não confere, fazer logout
-              console.log('Usuário do localStorage não existe no Supabase, fazendo logout');
-              localStorage.removeItem('terramail_user');
-              setUser(null);
-              setLoading(false);
-              return;
-            }
-          }
-          
-          setUser(userData);
-        } catch (error) {
-          console.error('Error parsing saved user data:', error);
-          localStorage.removeItem('terramail_user');
-        }
-      }
-      setLoading(false);
-    };
-    
-    loadSavedUser();
+    // Sempre limpar localStorage no início para evitar IDs inválidos
+    localStorage.removeItem('terramail_user');
+    setLoading(false);
   }, []);
 
   const login = async (email: string, password: string) => {
     console.log('Tentando login com:', { email, password });
     
-    if (isSupabaseConfigured()) {
-      // Usar Supabase para autenticação
-      const foundUser = await getUserByEmail(email);
-      
-      if (!foundUser) {
-        console.log('Usuário não encontrado no Supabase');
-        return { success: false, error: 'Email não encontrado' };
-      }
-
-      // Comparar senha com hash
-      const passwordMatch = await bcrypt.compare(password, foundUser.password_hash);
-      
-      if (!passwordMatch) {
-        console.log('Senha incorreta');
-        return { success: false, error: 'Senha incorreta' };
-      }
-
-      if (foundUser.is_banned) {
-        console.log('Usuário banido');
-        return { success: false, error: 'Conta banida' };
-      }
-
-      // Login bem-sucedido com dados do Supabase
-      const userData: User = {
-        id: foundUser.id,
-        email: foundUser.email,
-        role: foundUser.role,
-        subscription_days: foundUser.subscription_days,
-        is_banned: foundUser.is_banned
-      };
-
-      localStorage.setItem('terramail_user', JSON.stringify(userData));
-      setUser(userData);
-      console.log('Login realizado com sucesso (Supabase)');
-
-      return { success: true };
-    } else {
-      // Fallback para dados hardcoded quando Supabase não está configurado
-      const foundUser = DEMO_USERS.find(u => u.email === email);
-      
-      if (!foundUser) {
-        console.log('Usuário não encontrado');
-        return { success: false, error: 'Email não encontrado' };
-      }
-
-      if (foundUser.password !== password) {
-        console.log('Senha incorreta');
-        return { success: false, error: 'Senha incorreta' };
-      }
-
-      if (foundUser.is_banned) {
-        console.log('Usuário banido');
-        return { success: false, error: 'Conta banida' };
-      }
-
-      // Login bem-sucedido com dados mock
-      const userData: User = {
-        id: foundUser.id,
-        email: foundUser.email,
-        role: foundUser.role,
-        subscription_days: foundUser.subscription_days,
-        is_banned: foundUser.is_banned
-      };
-
-      localStorage.setItem('terramail_user', JSON.stringify(userData));
-      setUser(userData);
-      console.log('Login realizado com sucesso (Mock)');
-
-      return { success: true };
-    }
-  };
+    // Buscar usuário nos dados hardcoded
+    const foundUser = DEMO_USERS.find(u => u.email === email);
     
+    if (!foundUser) {
+      console.log('Usuário não encontrado');
+      return { success: false, error: 'Email não encontrado' };
+    }
+
+    if (foundUser.password !== password) {
+      console.log('Senha incorreta');
+      return { success: false, error: 'Senha incorreta' };
+    }
+
+    if (foundUser.is_banned) {
+      console.log('Usuário banido');
+      return { success: false, error: 'Conta banida' };
+    }
+
+    // Login bem-sucedido
+    const userData: User = {
+      id: foundUser.id,
+      email: foundUser.email,
+      role: foundUser.role,
+      subscription_days: foundUser.subscription_days,
+      is_banned: foundUser.is_banned
+    };
+
+    localStorage.setItem('terramail_user', JSON.stringify(userData));
+    setUser(userData);
+    console.log('Login realizado com sucesso');
+
+    return { success: true };
+  };
+
   const logout = () => {
     localStorage.removeItem('terramail_user');
     setUser(null);
