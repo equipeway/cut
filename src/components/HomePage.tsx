@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { getSubscriptionPlans, SubscriptionPlan } from '../lib/database';
 import { 
   Check, 
@@ -10,7 +11,9 @@ import {
   TrendingUp,
   Users,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  LogIn,
+  ExternalLink
 } from 'lucide-react';
 
 interface PlanCardProps {
@@ -105,7 +108,7 @@ function PlanCard({ plan, isPopular, onPurchase }: PlanCardProps) {
   );
 }
 
-export function PublicPlans() {
+export function HomePage() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
@@ -165,20 +168,41 @@ export function PublicPlans() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-purple-900">
+      {/* Header */}
+      <header className="relative z-10">
+        <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/25">
+                <Shield className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-white tracking-tight">TerrraMail</h1>
+                <p className="text-purple-300 text-xs">Secure Processing Platform</p>
+              </div>
+            </div>
+            <Link
+              to="/login"
+              className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 flex items-center gap-2 shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 transform hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <LogIn className="w-4 h-4" />
+              Fazer Login
+            </Link>
+          </div>
+        </div>
+      </header>
+
       {/* Hero Section */}
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-pink-500/10"></div>
         <div className="relative max-w-7xl mx-auto px-6 py-20">
           <div className="text-center mb-16">
-            <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-purple-700 rounded-2xl flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-purple-500/25">
-              <Shield className="w-10 h-10 text-white" />
-            </div>
-            <h1 className="text-5xl font-bold text-white mb-6 tracking-tight">
-              TerrraMail
-              <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"> Pro</span>
-            </h1>
-            <p className="text-xl text-gray-300 max-w-2xl mx-auto leading-relaxed">
-              Plataforma profissional de processamento seguro com tecnologia avançada e suporte dedicado
+            <h2 className="text-5xl font-bold text-white mb-6 tracking-tight">
+              Plataforma Profissional de
+              <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"> Processamento</span>
+            </h2>
+            <p className="text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
+              Tecnologia avançada, segurança máxima e suporte dedicado para suas necessidades de processamento
             </p>
           </div>
 
@@ -212,9 +236,9 @@ export function PublicPlans() {
       {/* Plans Section */}
       <div className="max-w-7xl mx-auto px-6 pb-20">
         <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold text-white mb-4">
+          <h3 className="text-4xl font-bold text-white mb-4">
             Escolha Seu Plano
-          </h2>
+          </h3>
           <p className="text-xl text-gray-400 max-w-2xl mx-auto">
             Planos flexíveis para todas as necessidades. Comece hoje mesmo!
           </p>
@@ -233,15 +257,15 @@ export function PublicPlans() {
 
         {/* Features Section */}
         <div className="mt-20 text-center">
-          <h3 className="text-3xl font-bold text-white mb-12">
+          <h4 className="text-3xl font-bold text-white mb-12">
             Por que escolher TerrraMail?
-          </h3>
+          </h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="bg-gray-900/30 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-8">
               <div className="w-12 h-12 bg-emerald-500/20 rounded-xl flex items-center justify-center mx-auto mb-6">
                 <Shield className="w-6 h-6 text-emerald-400" />
               </div>
-              <h4 className="text-xl font-bold text-white mb-4">Segurança Máxima</h4>
+              <h5 className="text-xl font-bold text-white mb-4">Segurança Máxima</h5>
               <p className="text-gray-400">
                 Criptografia de ponta a ponta e proteção avançada contra ameaças
               </p>
@@ -250,7 +274,7 @@ export function PublicPlans() {
               <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center mx-auto mb-6">
                 <Zap className="w-6 h-6 text-blue-400" />
               </div>
-              <h4 className="text-xl font-bold text-white mb-4">Alta Performance</h4>
+              <h5 className="text-xl font-bold text-white mb-4">Alta Performance</h5>
               <p className="text-gray-400">
                 Processamento ultrarrápido com infraestrutura de última geração
               </p>
@@ -259,11 +283,31 @@ export function PublicPlans() {
               <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center mx-auto mb-6">
                 <Users className="w-6 h-6 text-purple-400" />
               </div>
-              <h4 className="text-xl font-bold text-white mb-4">Suporte 24/7</h4>
+              <h5 className="text-xl font-bold text-white mb-4">Suporte 24/7</h5>
               <p className="text-gray-400">
                 Equipe especializada disponível a qualquer momento
               </p>
             </div>
+          </div>
+        </div>
+
+        {/* CTA Section */}
+        <div className="mt-20 text-center">
+          <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-2xl border border-purple-500/20 p-12">
+            <h4 className="text-3xl font-bold text-white mb-4">
+              Já tem uma conta?
+            </h4>
+            <p className="text-gray-300 mb-8 max-w-2xl mx-auto">
+              Faça login para acessar sua plataforma de processamento e aproveitar todos os recursos disponíveis
+            </p>
+            <Link
+              to="/login"
+              className="inline-flex items-center gap-3 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-8 py-4 rounded-xl font-semibold transition-all duration-200 shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 transform hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <LogIn className="w-5 h-5" />
+              Acessar Plataforma
+              <ExternalLink className="w-4 h-4" />
+            </Link>
           </div>
         </div>
       </div>

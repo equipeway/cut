@@ -34,11 +34,11 @@ export function Login() {
         {/* Back to Plans */}
         <div className="mb-6">
           <Link 
-            to="/plans"
+            to="/"
             className="inline-flex items-center gap-2 text-purple-300 hover:text-white transition-colors text-sm"
           >
             <ArrowLeft className="w-4 h-4" />
-            Voltar aos Planos
+            Voltar ao Início
           </Link>
         </div>
 

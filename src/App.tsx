@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Login } from './components/Login';
 import { Dashboard } from './components/Dashboard';
-import { PublicPlans } from './components/PublicPlans';
+import { HomePage } from './components/HomePage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -31,7 +31,7 @@ function AppContent() {
 
   return (
     <Routes>
-      <Route path="/plans" element={<PublicPlans />} />
+      <Route path="/" element={<HomePage />} />
       <Route 
         path="/login" 
         element={user ? <Navigate to="/dashboard" replace /> : <Login />} 
@@ -44,7 +44,6 @@ function AppContent() {
           </ProtectedRoute>
         } 
       />
-      <Route path="/" element={<Navigate to="/plans" replace />} />
     </Routes>
   );
 }
