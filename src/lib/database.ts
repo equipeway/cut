@@ -156,16 +156,14 @@ export const getUsers = async (): Promise<User[]> => {
 
       if (error) {
         console.error('Supabase error:', error);
-        console.log('Fallback para dados mock');
-        return mockUsers;
+        throw error;
       }
 
       console.log('Usuários carregados do Supabase:', data?.length);
       return data || [];
     } catch (error) {
       console.error('Erro ao buscar usuários no Supabase:', error);
-      console.log('Fallback para dados mock');
-      return mockUsers;
+      throw error;
     }
   }
   
@@ -189,7 +187,7 @@ export const createUser = async (userData: {
         .from('users')
         .insert({
           email: userData.email,
-          password_hash: userData.password, // In production, this should be hashed
+          password_hash: userData.password,
           role: userData.role || 'user',
           subscription_days: userData.subscription_days || 0,
           allowed_ips: userData.allowed_ips || [],
