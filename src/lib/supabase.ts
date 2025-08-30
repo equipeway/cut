@@ -26,9 +26,18 @@ export const supabaseAdmin = createClient(
 );
 // Check if Supabase is properly configured
 export const isSupabaseConfigured = () => {
-  const hasValidUrl = supabaseUrl && supabaseUrl !== defaultUrl && supabaseUrl.includes('supabase.co');
-  const hasValidAnonKey = supabaseAnonKey && supabaseAnonKey !== defaultKey && supabaseAnonKey.length > 50;
-  const hasValidServiceKey = supabaseServiceKey && supabaseServiceKey !== defaultKey && supabaseServiceKey.length > 50;
+  const hasValidUrl = supabaseUrl && supabaseUrl !== defaultUrl && supabaseUrl.startsWith('https://');
+  const hasValidAnonKey = supabaseAnonKey && supabaseAnonKey !== defaultKey && supabaseAnonKey.length > 20;
+  const hasValidServiceKey = supabaseServiceKey && supabaseServiceKey !== defaultKey && supabaseServiceKey.length > 20;
+  
+  console.log('Supabase configuration check:', {
+    hasValidUrl,
+    hasValidAnonKey,
+    hasValidServiceKey,
+    url: supabaseUrl ? `${supabaseUrl.substring(0, 20)}...` : 'undefined',
+    anonKeyLength: supabaseAnonKey?.length || 0,
+    serviceKeyLength: supabaseServiceKey?.length || 0
+  });
   
   return hasValidUrl && hasValidAnonKey && hasValidServiceKey;
 };
