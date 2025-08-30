@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from './supabase';
+import { supabase, supabaseAdmin, isSupabaseConfigured } from './supabase';
 import bcrypt from 'bcryptjs';
 
 export interface User {
@@ -98,7 +98,7 @@ export const getUsers = async (): Promise<User[]> => {
   }
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('users')
       .select('*')
       .order('created_at', { ascending: false });
@@ -140,7 +140,7 @@ export const createUser = async (userData: {
       console.log('Using plain text password as fallback');
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('users')
       .insert({
         email: userData.email,
@@ -170,7 +170,7 @@ export const updateUser = async (userId: string, updates: Partial<User>): Promis
   }
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('users')
       .update(updates)
       .eq('id', userId)
@@ -195,7 +195,7 @@ export const deleteUser = async (userId: string): Promise<void> => {
   }
 
   try {
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('users')
       .delete()
       .eq('id', userId);

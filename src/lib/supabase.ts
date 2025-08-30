@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
 // Use placeholder values if environment variables are not set
 const defaultUrl = 'https://placeholder.supabase.co';
@@ -12,6 +13,17 @@ export const supabase = createClient(
   supabaseAnonKey || defaultKey
 );
 
+// Admin client with service role key (bypasses RLS)
+export const supabaseAdmin = createClient(
+  supabaseUrl || defaultUrl,
+  supabaseServiceKey || defaultKey,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+);
 // Check if Supabase is properly configured
 export const isSupabaseConfigured = () => {
   return supabaseUrl && supabaseAnonKey && 
