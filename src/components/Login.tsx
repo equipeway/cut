@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useIPAddress } from '../hooks/useIPAddress';
-import { Lock, Mail, AlertCircle, Shield, ArrowLeft } from 'lucide-react';
+import { Lock, Mail, AlertCircle, Shield, Crown } from 'lucide-react';
 
 export function Login() {
   const [email, setEmail] = useState('');
@@ -31,17 +30,6 @@ export function Login() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-purple-900 flex items-center justify-center p-6">
       <div className="w-full max-w-md">
-        {/* Back to Plans */}
-        <div className="mb-6">
-          <Link 
-            to="/"
-            className="inline-flex items-center gap-2 text-purple-300 hover:text-white transition-colors text-sm"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Voltar ao Início
-          </Link>
-        </div>
-
         <div className="bg-gray-900/80 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-8 shadow-2xl">
           {/* Logo */}
           <div className="text-center mb-8">
@@ -50,6 +38,30 @@ export function Login() {
             </div>
             <h1 className="text-2xl font-bold text-white tracking-tight">TerrraMail</h1>
             <p className="text-purple-300 text-sm mt-1">Secure Processing Platform</p>
+          </div>
+
+          {/* Demo Credentials */}
+          <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-4 mb-6">
+            <h4 className="text-purple-300 font-medium mb-3 flex items-center gap-2">
+              <Crown className="w-4 h-4" />
+              Credenciais Demo
+            </h4>
+            <div className="space-y-2 text-sm">
+              <div className="bg-gray-800/50 rounded-lg p-3">
+                <div className="text-gray-400 text-xs mb-1">Admin:</div>
+                <div className="flex justify-between items-center">
+                  <code className="text-purple-300">admin@terramail.com</code>
+                  <code className="text-purple-300">admin123</code>
+                </div>
+              </div>
+              <div className="bg-gray-800/50 rounded-lg p-3">
+                <div className="text-gray-400 text-xs mb-1">Cliente Demo:</div>
+                <div className="flex justify-between items-center">
+                  <code className="text-blue-300">user@terramail.com</code>
+                  <code className="text-blue-300">user123</code>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Error Notification */}
@@ -109,7 +121,7 @@ export function Login() {
                   Authenticating...
                 </div>
               ) : (
-                'Sign In'
+                'Entrar'
               )}
             </button>
           </form>
@@ -118,10 +130,10 @@ export function Login() {
           <div className="mt-8 pt-6 border-t border-purple-500/20 text-center">
             <div className="flex items-center justify-center gap-2 text-purple-300 text-xs mb-2">
               <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-              IP: {ipLoading ? 'Detecting...' : ipAddress}
+              IP: {ipLoading ? 'Detectando...' : ipAddress}
             </div>
             <p className="text-gray-500 text-xs">
-              Acesso para clientes registrados
+              Para clientes e administradores
             </p>
           </div>
         </div>

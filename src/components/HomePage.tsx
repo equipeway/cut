@@ -8,7 +8,6 @@ import type { SubscriptionPlan } from '../types';
 interface PlanCardProps {
   plan: SubscriptionPlan;
   isPopular?: boolean;
-}
 
 function getPlanIcon(planName: string) {
   switch (planName.toLowerCase()) {
@@ -152,13 +151,6 @@ export function HomePage() {
             >
               <LogIn className="w-4 h-4" />
               Login
-            </Link>
-            <Link
-              to="/admin"
-              className="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 border border-gray-700"
-            >
-              <Crown className="w-4 h-4" />
-              Admin
             </Link>
           </div>
         </div>
