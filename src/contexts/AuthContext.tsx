@@ -55,6 +55,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
+    // Limpar localStorage para evitar IDs inválidos
+    localStorage.removeItem('user');
+    
     console.log('Tentando login com:', { email, password });
     
     // Buscar usuário nos dados hardcoded
