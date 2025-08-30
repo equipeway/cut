@@ -102,7 +102,10 @@ export function HomePage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadPlans();
+    const loadPlansAsync = async () => {
+      await loadPlans();
+    };
+    loadPlansAsync();
   }, []);
 
   const loadPlans = async () => {
@@ -110,7 +113,7 @@ export function HomePage() {
       setLoading(true);
       setError(null);
 
-      const plansData = getSubscriptionPlans();
+      const plansData = await getSubscriptionPlans();
       setPlans(plansData);
     } catch (error) {
       console.error('Error loading plans:', error);

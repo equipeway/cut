@@ -18,14 +18,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const savedUser = localStorage.getItem('terramail_user');
-        if (savedUser) {
-          const userData = JSON.parse(savedUser);
-          setUser(userData);
-        }
+        // No persistence - user needs to login each time
+        setUser(null);
       } catch (error) {
         console.error('Error initializing auth:', error);
-        localStorage.removeItem('terramail_user');
       } finally {
         setLoading(false);
       }
@@ -38,7 +34,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const result = await loginUser(email, password);
       
-      localStorage.setItem('terramail_user', JSON.stringify(result.user));
       setUser(result.user);
 
       return { success: true };
@@ -52,7 +47,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
-    localStorage.removeItem('terramail_user');
     setUser(null);
   };
 

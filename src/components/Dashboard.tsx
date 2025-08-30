@@ -122,7 +122,7 @@ export function Dashboard() {
     if (!session) return;
 
     try {
-      const updatedSession = updateSession(session.id, updates);
+      const updatedSession = await updateSession(session.id, updates);
       if (updatedSession) {
         setSession(updatedSession);
       }
