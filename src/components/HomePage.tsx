@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Shield, LogIn, Crown, Clock, Check, ExternalLink, Zap, Users, ArrowRight } from 'lucide-react';
-import { getSubscriptionPlans, isSupabaseConfigured } from '../lib/supabase';
+import { getSubscriptionPlans, SubscriptionPlan } from '../lib/database';
+import { isSupabaseConfigured } from '../lib/supabase';
 import { mockPlans } from '../data/mockPlans';
-import type { SubscriptionPlan } from '../types';
 
 interface PlanCardProps {
   plan: SubscriptionPlan;
