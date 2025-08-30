@@ -1,6 +1,5 @@
 // Direct database operations - no API calls needed
 import {
-  getDatabase,
   getUserByEmail,
   getUserById,
   getUsers,
@@ -17,7 +16,6 @@ import {
   deleteSubscriptionPlan,
   createPurchase,
   getSystemStats,
-  initDatabase,
   User,
   ProcessingSession,
   SubscriptionPlan,
@@ -77,12 +75,9 @@ export { getSystemStats };
 // Health check
 export const checkHealth = async (): Promise<boolean> => {
   try {
-    getDatabase();
+    getUsers();
     return true;
   } catch (error) {
     return false;
   }
 };
-
-// Initialize on import
-initDatabase();
