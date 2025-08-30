@@ -63,6 +63,7 @@ export function AdminUserManagement() {
   const [userPurchases, setUserPurchases] = useState<UserPurchase[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const [createUserForm, setCreateUserForm] = useState<CreateUserForm>({
     email: '',
@@ -144,7 +145,9 @@ export function AdminUserManagement() {
       });
       setShowCreateUser(false);
       await loadData();
-      alert('Usuário criado com sucesso!');
+      setSuccessMessage(`Usuário ${createUserForm.email} criado com sucesso!`);
+      // Auto-hide success message after 5 seconds
+      setTimeout(() => setSuccessMessage(null), 5000);
     } catch (error) {
       console.error('Error creating user:', error);
       alert('Erro ao criar usuário: ' + (error as Error).message);
@@ -169,7 +172,9 @@ export function AdminUserManagement() {
       });
       setShowCreatePlan(false);
       loadData();
-      alert('Plano criado com sucesso!');
+      setSuccessMessage(`Plano ${createPlanForm.name} criado com sucesso!`);
+      // Auto-hide success message after 5 seconds
+      setTimeout(() => setSuccessMessage(null), 5000);
     } catch (error) {
       console.error('Error creating plan:', error);
       alert('Erro ao criar plano: ' + (error as Error).message);
@@ -204,7 +209,9 @@ export function AdminUserManagement() {
       }
 
       loadData();
-      alert(`Plano ${plan.name} vendido com sucesso!`);
+      setSuccessMessage(`Plano ${plan.name} vendido para ${users.find(u => u.id === userId)?.email}!`);
+      // Auto-hide success message after 5 seconds
+      setTimeout(() => setSuccessMessage(null), 5000);
     } catch (error) {
       console.error('Error selling plan:', error);
       alert('Erro ao vender plano');
@@ -279,6 +286,23 @@ export function AdminUserManagement() {
 
   return (
     <div className="space-y-6">
+      {/* Success Message */}
+      {successMessage && (
+        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-6 flex items-start gap-4 animate-pulse">
+          <CheckCircle className="w-6 h-6 text-emerald-400 mt-0.5 flex-shrink-0" />
+          <div>
+            <div className="text-emerald-300 font-medium mb-1">Operação Realizada</div>
+            <span className="text-emerald-300 text-sm">{successMessage}</span>
+          </div>
+          <button
+            onClick={() => setSuccessMessage(null)}
+            className="text-emerald-400 hover:text-emerald-300 p-1 hover:bg-emerald-500/10 rounded-lg transition-all ml-auto"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Enhanced Tab Navigation */}
       <div className="bg-gray-800/30 rounded-2xl p-2 border border-purple-500/20">
         <div className="flex gap-2">
