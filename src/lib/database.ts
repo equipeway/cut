@@ -168,7 +168,7 @@ export const updateUser = async (userId: string, updates: Partial<User>): Promis
       .update(updates)
       .eq('id', userId)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Error updating user:', error);

@@ -203,9 +203,13 @@ export function AdminUserManagement() {
       // Update user subscription
       const user = users.find(u => u.id === userId);
       if (user) {
-        await updateUser(userId, {
+        const result = await updateUser(userId, {
           subscription_days: user.subscription_days + plan.days
         });
+        
+        if (!result) {
+          throw new Error('Usuário não encontrado para atualizar assinatura');
+        }
       }
 
       loadData();
@@ -530,8 +534,15 @@ export function AdminUserManagement() {
                         {user.is_banned ? (
                           <button
                             onClick={async () => {
-                              await updateUser(user.id, { is_banned: false });
-                              loadData();
+                              const result = await updateUser(user.id, { is_banned: false });
+                              if (result) {
+                                loadData();
+                                setSuccessMessage(`Usuário ${user.email} foi desbanido com sucesso!`);
+                                setTimeout(() => setSuccessMessage(null), 5000);
+                              } else {
+                                alert('Usuário não encontrado. A lista será atualizada.');
+                                loadData();
+                              }
                             }}
                             title="Desbanir usuário"
                             className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all shadow-lg"
@@ -542,8 +553,15 @@ export function AdminUserManagement() {
                           <button
                             onClick={async () => {
                               if (!isSupabaseConfigured()) return;
-                              await updateUser(user.id, { is_banned: true });
-                              loadData();
+                              const result = await updateUser(user.id, { is_banned: true });
+                              if (result) {
+                                loadData();
+                                setSuccessMessage(`Usuário ${user.email} foi banido com sucesso!`);
+                                setTimeout(() => setSuccessMessage(null), 5000);
+                              } else {
+                                alert('Usuário não encontrado. A lista será atualizada.');
+                                loadData();
+                              }
                             }}
                             title="Banir usuário"
                             className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all shadow-lg"
