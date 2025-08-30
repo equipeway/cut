@@ -538,7 +538,8 @@ export function Dashboard() {
               </div>
             </div>
           </div>
-        ) : (
+        </div>
+      ) : (
         <main className="max-w-7xl mx-auto p-6">
           {/* Database Error Warning */}
           {databaseError && (
