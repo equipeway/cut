@@ -78,11 +78,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Get user data
       const userData = await getUserByEmail(email);
       if (!userData) {
-        await addLoginAttempt({
-          ip_address: ipAddress,
-          user_email: email,
-          success: false
-        });
+        try {
+          await addLoginAttempt({
+            ip_address: ipAddress,
+            user_email: email,
+            success: false
+          });
+        } catch (logError) {
+          console.warn('Failed to log login attempt:', logError);
+        }
         return { success: false, error: 'Invalid credentials' };
       }
 
@@ -92,31 +96,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Check IP restrictions
       if (userData.allowed_ips.length > 0 && !userData.allowed_ips.includes(ipAddress)) {
-        await addLoginAttempt({
-          ip_address: ipAddress,
-          user_email: email,
-          success: false
-        });
+        try {
+          await addLoginAttempt({
+            ip_address: ipAddress,
+            user_email: email,
+            success: false
+          });
+        } catch (logError) {
+          console.warn('Failed to log login attempt:', logError);
+        }
         return { success: false, error: 'IP address not allowed' };
       }
 
       // Verify password
       const isValidPassword = await verifyPassword(password, userData.password_hash);
       if (!isValidPassword) {
-        await addLoginAttempt({
-          ip_address: ipAddress,
-          user_email: email,
-          success: false
-        });
+        try {
+          await addLoginAttempt({
+            ip_address: ipAddress,
+            user_email: email,
+            success: false
+          });
+        } catch (logError) {
+          console.warn('Failed to log login attempt:', logError);
+        }
         return { success: false, error: 'Invalid credentials' };
       }
 
       // Log successful attempt
-      await addLoginAttempt({
-        ip_address: ipAddress,
-        user_email: email,
-        success: true
-      });
+      try {
+        await addLoginAttempt({
+          ip_address: ipAddress,
+          user_email: email,
+          success: true
+        });
+      } catch (logError) {
+        console.warn('Failed to log login attempt:', logError);
+      }
 
       // Save user session
       localStorage.setItem('terramail_current_user', JSON.stringify(userData));
