@@ -110,7 +110,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Verify password
       const isValidPassword = await verifyPassword(password, userData.password_hash);
-      console.log('Password verification:', { email, isValidPassword, hasHash: !!userData.password_hash });
       if (!isValidPassword) {
         try {
           await addLoginAttempt({
