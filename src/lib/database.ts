@@ -1,4 +1,4 @@
-import initSqlJs from 'sql.js';
+import { initSqlJs } from 'sql.js';
 
 // Database types
 export interface User {
