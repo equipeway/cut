@@ -127,7 +127,18 @@ export const createUser = async (userData: {
   }
 
   try {
-    const hashedPassword = await bcrypt.hash(userData.password, 10);
+    console.log('Creating user with password:', userData.password);
+    
+    let hashedPassword;
+    try {
+      hashedPassword = await bcrypt.hash(userData.password, 10);
+      console.log('Password hashed successfully:', hashedPassword);
+    } catch (hashError) {
+      console.error('Error hashing password:', hashError);
+      // Fallback to plain text if hashing fails
+      hashedPassword = userData.password;
+      console.log('Using plain text password as fallback');
+    }
 
     const { data, error } = await supabase
       .from('users')

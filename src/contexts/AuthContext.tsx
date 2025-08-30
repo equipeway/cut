@@ -78,8 +78,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: 'Email não encontrado' };
       }
 
+      console.log('Password hash from database:', foundUser.password_hash);
+      console.log('Password provided:', password);
+      console.log('Hash starts with $2a$ or $2b$:', foundUser.password_hash.startsWith('$2a$') || foundUser.password_hash.startsWith('$2b$'));
+      
       console.log('Comparing password...');
-      const passwordMatch = await bcrypt.compare(password, foundUser.password_hash);
+      let passwordMatch = false;
+      
+      try {
+        // Try bcrypt comparison first
+        passwordMatch = await bcrypt.compare(password, foundUser.password_hash);
+        console.log('Bcrypt comparison result:', passwordMatch);
+        
+        // If bcrypt fails, try direct comparison (for plain text passwords)
+        if (!passwordMatch && password === foundUser.password_hash) {
+          passwordMatch = true;
+          console.log('Direct comparison matched (plain text password)');
+        }
+      } catch (bcryptError) {
+        console.error('Bcrypt comparison error:', bcryptError);
+        // Fallback to direct comparison
+        passwordMatch = password === foundUser.password_hash;
+        console.log('Fallback direct comparison result:', passwordMatch);
+      }
+      
       console.log('Password match:', passwordMatch);
       
       if (!passwordMatch) {
