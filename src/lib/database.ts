@@ -78,9 +78,9 @@ export const getUserByEmail = async (email: string): Promise<User | null> => {
     .from('users')
     .select('*')
     .eq('email', email)
-    .single();
+    .maybeSingle();
   
-  if (error && error.code !== 'PGRST116') throw error;
+  if (error) throw error;
   return data;
 };
 
