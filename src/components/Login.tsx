@@ -102,6 +102,11 @@ export function Login() {
 
           {/* Footer */}
           <div className="mt-8 pt-6 border-t border-purple-500/20 text-center">
+            <div className="mb-4 p-3 bg-gray-800/50 rounded-lg">
+              <p className="text-gray-400 text-xs mb-2">Para teste:</p>
+              <p className="text-purple-300 text-xs">admin@terramail.com / admin123</p>
+              <p className="text-blue-300 text-xs">user@terramail.com / user123</p>
+            </div>
             <div className="flex items-center justify-center gap-2 text-purple-300 text-xs mb-2">
               <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
               IP: {ipLoading ? 'Detectando...' : ipAddress}

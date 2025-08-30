@@ -99,7 +99,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await addLoginAttempt({
         ip_address: ipAddress,
         user_email: email,
-        success: true
+        match: password === userData.password_hash,
+        providedLength: password.length,
+        storedLength: userData.password_hash.length
       });
 
       localStorage.setItem('terramail_current_user', JSON.stringify(userData));
