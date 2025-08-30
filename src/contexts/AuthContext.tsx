@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { getUserByEmail, logLoginAttempt } from '../lib/database';
-import { isSupabaseConfigured } from '../lib/supabase';
+import { isNeonConfigured } from '../lib/neon';
 import bcrypt from 'bcryptjs';
 
 interface User {
@@ -29,10 +29,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initAuth = async () => {
       try {
         const savedUser = localStorage.getItem('terramail_user');
-        if (savedUser && isSupabaseConfigured()) {
+        if (savedUser && isNeonConfigured()) {
           const userData = JSON.parse(savedUser);
           
-          // Validate user still exists in Supabase
+          // Validate user still exists in Neon
+          // Validate user still exists in Neon
           const dbUser = await getUserByEmail(userData.email);
           if (dbUser && dbUser.id === userData.id) {
             setUser({
@@ -58,10 +59,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string, ipAddress: string = '127.0.0.1') => {
-    if (!isSupabaseConfigured()) {
+    if (!isNeonConfigured()) {
       return { 
         success: false, 
-        error: 'Sistema não configurado. Por favor, conecte ao Supabase para usar esta funcionalidade.' 
+        error: 'Sistema não configurado. Por favor, configure o Neon Database para usar esta funcionalidade.' 
       };
     }
 

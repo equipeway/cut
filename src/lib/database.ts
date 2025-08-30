@@ -62,6 +62,157 @@ export interface UserPurchase {
   plan?: SubscriptionPlan;
 }
 
+// Initialize database tables
+export const initializeDatabase = async () => {
+  if (!isNeonConfigured()) {
+    throw new Error('Neon not configured. Please set VITE_DATABASE_URL environment variable.');
+  }
+
+  try {
+    console.log('Initializing database tables...');
+
+    // Create user_role enum
+    await sql`
+      DO $$ BEGIN
+        CREATE TYPE user_role AS ENUM ('user', 'admin');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+    `;
+
+    // Create users table
+    await sql`
+      CREATE TABLE IF NOT EXISTS users (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        role user_role DEFAULT 'user',
+        subscription_days INTEGER DEFAULT 0,
+        allowed_ips TEXT[] DEFAULT '{}',
+        is_banned BOOLEAN DEFAULT false,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `;
+
+    // Create login_attempts table
+    await sql`
+      CREATE TABLE IF NOT EXISTS login_attempts (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        ip_address TEXT NOT NULL,
+        user_email TEXT,
+        success BOOLEAN NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `;
+
+    // Create banned_ips table
+    await sql`
+      CREATE TABLE IF NOT EXISTS banned_ips (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        ip_address TEXT UNIQUE NOT NULL,
+        reason TEXT DEFAULT 'Violation of terms',
+        banned_until TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `;
+
+    // Create subscription_plans table
+    await sql`
+      CREATE TABLE IF NOT EXISTS subscription_plans (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name TEXT NOT NULL,
+        days INTEGER NOT NULL,
+        price DECIMAL(10,2) NOT NULL,
+        description TEXT DEFAULT '',
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `;
+
+    // Create processing_sessions table
+    await sql`
+      CREATE TABLE IF NOT EXISTS processing_sessions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        approved_count INTEGER DEFAULT 0,
+        rejected_count INTEGER DEFAULT 0,
+        loaded_count INTEGER DEFAULT 0,
+        tested_count INTEGER DEFAULT 0,
+        is_active BOOLEAN DEFAULT false,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `;
+
+    // Create user_purchases table
+    await sql`
+      CREATE TABLE IF NOT EXISTS user_purchases (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        plan_id UUID REFERENCES subscription_plans(id) ON DELETE CASCADE,
+        days_added INTEGER NOT NULL,
+        amount_paid DECIMAL(10,2) NOT NULL,
+        payment_method TEXT DEFAULT 'manual',
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `;
+
+    // Create indexes
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+    `;
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+    `;
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON login_attempts(ip_address);
+    `;
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_login_attempts_created_at ON login_attempts(created_at);
+    `;
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_banned_ips_ip ON banned_ips(ip_address);
+    `;
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_processing_sessions_user_id ON processing_sessions(user_id);
+    `;
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_user_purchases_user_id ON user_purchases(user_id);
+    `;
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_user_purchases_created_at ON user_purchases(created_at);
+    `;
+
+    // Insert default subscription plans if they don't exist
+    const existingPlans = await sql`SELECT COUNT(*) as count FROM subscription_plans`;
+    if (existingPlans[0].count === 0) {
+      await sql`
+        INSERT INTO subscription_plans (name, days, price, description) VALUES
+        ('Plano Básico', 30, 29.90, 'Ideal para uso pessoal com recursos essenciais'),
+        ('Plano Standard', 90, 79.90, 'Perfeito para pequenas empresas com recursos avançados'),
+        ('Plano Premium', 180, 149.90, 'Para empresas médias com recursos completos'),
+        ('Plano Ultimate', 365, 299.90, 'Solução empresarial com todos os recursos')
+      `;
+    }
+
+    // Create admin user if it doesn't exist
+    const adminExists = await sql`SELECT COUNT(*) as count FROM users WHERE role = 'admin'`;
+    if (adminExists[0].count === 0) {
+      await sql`
+        INSERT INTO users (email, password_hash, role, subscription_days) 
+        VALUES ('admin@terramail.com', 'admin123', 'admin', 999)
+      `;
+      console.log('Admin user created: admin@terramail.com / admin123');
+    }
+
+    console.log('Database initialized successfully!');
+  } catch (error) {
+    console.error('Error initializing database:', error);
+    throw error;
+  }
+};
+
 // User operations
 export const getUserByEmail = async (email: string): Promise<User | null> => {
   if (!isNeonConfigured()) {
