@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, LogIn, Crown, Clock, Check, ExternalLink, Zap, Users, ArrowRight, Star, TrendingUp, Activity, Globe } from 'lucide-react';
+import { Shield, LogIn, Crown, Clock, Check, ExternalLink, Zap, Users, ArrowRight, Star } from 'lucide-react';
 import { getSubscriptionPlans, SubscriptionPlan } from '../lib/database';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { mockPlans } from '../data/mockPlans';
