@@ -11,36 +11,11 @@ import {
   createUserPurchase,
   updateUserSubscription,
   banUser,
-  unbanUser
+  unbanUser,
+  User,
+  SubscriptionPlan,
+  UserPurchase
 } from '../lib/database';
-
-interface User {
-  id: string;
-  email: string;
-  role: 'user' | 'admin';
-  subscription_days: number;
-  is_banned: boolean;
-  created_at: string;
-}
-
-interface SubscriptionPlan {
-  id: string;
-  name: string;
-  days: number;
-  price: number;
-  description: string;
-  is_active: boolean;
-}
-
-interface UserPurchase {
-  id: string;
-  user_id: string;
-  plan_id: string;
-  days_added: number;
-  amount_paid: number;
-  payment_method: string;
-  created_at: string;
-}
 
 export function Dashboard() {
   const { user, logout, isAdmin } = useAuth();

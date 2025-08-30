@@ -1,154 +1,342 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { getUserByEmail, logLoginAttempt } from '../lib/database';
-import { isNeonConfigured } from '../lib/neon';
-import bcrypt from 'bcryptjs';
+import { sql, isNeonConfigured } from './neon';
 
-interface User {
+export interface User {
   id: string;
   email: string;
+  password_hash: string;
   role: 'user' | 'admin';
   subscription_days: number;
+  allowed_ips: string[];
   is_banned: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
-interface AuthContextType {
-  user: User | null;
-  loading: boolean;
-  login: (email: string, password: string, ipAddress?: string) => Promise<{ success: boolean; error?: string }>;
-  logout: () => void;
-  isAdmin: boolean;
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  days: number;
+  price: number;
+  description: string;
+  is_active: boolean;
+  created_at: string;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        const savedUser = localStorage.getItem('terramail_user');
-        if (savedUser && isNeonConfigured()) {
-          const userData = JSON.parse(savedUser);
-          
-          // Validate user still exists in Neon
-          // Validate user still exists in Neon
-          const dbUser = await getUserByEmail(userData.email);
-          if (dbUser && dbUser.id === userData.id) {
-            setUser({
-              id: dbUser.id,
-              email: dbUser.email,
-              role: dbUser.role,
-              subscription_days: dbUser.subscription_days,
-              is_banned: dbUser.is_banned
-            });
-          } else {
-            localStorage.removeItem('terramail_user');
-          }
-        }
-      } catch (error) {
-        console.error('Error validating saved user:', error);
-        localStorage.removeItem('terramail_user');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initAuth();
-  }, []);
-
-  const login = async (email: string, password: string, ipAddress: string = '127.0.0.1') => {
-    if (!isNeonConfigured()) {
-      return { 
-        success: false, 
-        error: 'Sistema não configurado. Por favor, configure o Neon Database para usar esta funcionalidade.' 
-      };
-    }
-
-    console.log('Login attempt for email:', email);
-
-    try {
-      const foundUser = await getUserByEmail(email);
-      
-      console.log('User found in database:', foundUser ? 'Yes' : 'No');
-      
-      if (!foundUser) {
-        await logLoginAttempt(ipAddress, email, false);
-        console.log('Login failed: Email not found');
-        return { success: false, error: 'Email não encontrado' };
-      }
-
-      console.log('Password hash from database:', foundUser.password_hash);
-      console.log('Password provided:', password);
-      console.log('Hash starts with $2a$ or $2b$:', foundUser.password_hash.startsWith('$2a$') || foundUser.password_hash.startsWith('$2b$'));
-      
-      console.log('Comparing password...');
-      let passwordMatch = false;
-      
-      try {
-        // Since passwords are now stored as plain text, use direct comparison
-        passwordMatch = password === foundUser.password_hash;
-        console.log('Direct comparison result:', passwordMatch);
-      } catch (error) {
-        console.error('Password comparison error:', error);
-        passwordMatch = false;
-      }
-      
-      console.log('Password match:', passwordMatch);
-      
-      if (!passwordMatch) {
-        await logLoginAttempt(ipAddress, email, false);
-        return { success: false, error: 'Senha incorreta' };
-      }
-
-      if (foundUser.is_banned) {
-        await logLoginAttempt(ipAddress, email, false);
-        return { success: false, error: 'Conta banida' };
-      }
-
-      // Login successful
-      console.log('Login successful for user:', foundUser.email);
-      const userData: User = {
-        id: foundUser.id,
-        email: foundUser.email,
-        role: foundUser.role,
-        subscription_days: foundUser.subscription_days,
-        is_banned: foundUser.is_banned
-      };
-
-      localStorage.setItem('terramail_user', JSON.stringify(userData));
-      setUser(userData);
-      await logLoginAttempt(ipAddress, email, true);
-
-      return { success: true };
-    } catch (error) {
-      console.error('Login error:', error);
-      return { 
-        success: false, 
-        error: 'Erro interno do sistema. Tente novamente.' 
-      };
-    }
-  };
-
-  const logout = () => {
-    localStorage.removeItem('terramail_user');
-    setUser(null);
-  };
-
-  const isAdmin = user?.role === 'admin';
-
-  return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isAdmin }}>
-      {children}
-    </AuthContext.Provider>
-  );
+export interface UserPurchase {
+  id: string;
+  user_id: string;
+  plan_id: string;
+  days_added: number;
+  amount_paid: number;
+  payment_method: string;
+  created_at: string;
+  plan_name?: string;
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+export interface LoginAttempt {
+  id: string;
+  ip_address: string;
+  user_email: string | null;
+  success: boolean;
+  created_at: string;
+}
+
+export interface BannedIP {
+  id: string;
+  ip_address: string;
+  reason: string;
+  banned_until: string | null;
+  created_at: string;
+}
+
+export interface ProcessingSession {
+  id: string;
+  user_id: string;
+  approved_count: number;
+  rejected_count: number;
+  loaded_count: number;
+  tested_count: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// User functions
+export async function getUserByEmail(email: string): Promise<User | null> {
+  if (!isNeonConfigured()) {
+    console.warn('Neon not configured, returning null');
+    return null;
   }
-  return context;
+
+  try {
+    const result = await sql`
+      SELECT * FROM users WHERE email = ${email} LIMIT 1
+    `;
+    return result[0] as User || null;
+  } catch (error) {
+    console.error('Error getting user by email:', error);
+    return null;
+  }
 }
+
+export async function getAllUsers(): Promise<User[]> {
+  if (!isNeonConfigured()) {
+    return [];
+  }
+
+  try {
+    const result = await sql`
+      SELECT * FROM users ORDER BY created_at DESC
+    `;
+    return result as User[];
+  } catch (error) {
+    console.error('Error getting all users:', error);
+    return [];
+  }
+}
+
+export async function banUser(userId: string): Promise<boolean> {
+  if (!isNeonConfigured()) {
+    return false;
+  }
+
+  try {
+    await sql`
+      UPDATE users 
+      SET is_banned = true, updated_at = now() 
+      WHERE id = ${userId}
+    `;
+    return true;
+  } catch (error) {
+    console.error('Error banning user:', error);
+    return false;
+  }
+}
+
+export async function unbanUser(userId: string): Promise<boolean> {
+  if (!isNeonConfigured()) {
+    return false;
+  }
+
+  try {
+    await sql`
+      UPDATE users 
+      SET is_banned = false, updated_at = now() 
+      WHERE id = ${userId}
+    `;
+    return true;
+  } catch (error) {
+    console.error('Error unbanning user:', error);
+    return false;
+  }
+}
+
+export async function updateUserSubscription(email: string, additionalDays: number): Promise<boolean> {
+  if (!isNeonConfigured()) {
+    return false;
+  }
+
+  try {
+    await sql`
+      UPDATE users 
+      SET subscription_days = subscription_days + ${additionalDays}, updated_at = now() 
+      WHERE email = ${email}
+    `;
+    return true;
+  } catch (error) {
+    console.error('Error updating user subscription:', error);
+    return false;
+  }
+}
+
+// Subscription plan functions
+export async function getAllSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+  if (!isNeonConfigured()) {
+    return [];
+  }
+
+  try {
+    const result = await sql`
+      SELECT * FROM subscription_plans ORDER BY created_at DESC
+    `;
+    return result as SubscriptionPlan[];
+  } catch (error) {
+    console.error('Error getting subscription plans:', error);
+    return [];
+  }
+}
+
+export async function createSubscriptionPlan(
+  name: string, 
+  days: number, 
+  price: number, 
+  description: string = ''
+): Promise<SubscriptionPlan | null> {
+  if (!isNeonConfigured()) {
+    return null;
+  }
+
+  try {
+    const result = await sql`
+      INSERT INTO subscription_plans (name, days, price, description)
+      VALUES (${name}, ${days}, ${price}, ${description})
+      RETURNING *
+    `;
+    return result[0] as SubscriptionPlan;
+  } catch (error) {
+    console.error('Error creating subscription plan:', error);
+    return null;
+  }
+}
+
+export async function updateSubscriptionPlan(
+  planId: string, 
+  updates: Partial<SubscriptionPlan>
+): Promise<boolean> {
+  if (!isNeonConfigured()) {
+    return false;
+  }
+
+  try {
+    const setClause = Object.entries(updates)
+      .map(([key, value]) => `${key} = ${typeof value === 'string' ? `'${value}'` : value}`)
+      .join(', ');
+
+    if (updates.is_active !== undefined) {
+      await sql`
+        UPDATE subscription_plans 
+        SET is_active = ${updates.is_active}
+        WHERE id = ${planId}
+      `;
+    }
+
+    if (updates.name) {
+      await sql`
+        UPDATE subscription_plans 
+        SET name = ${updates.name}
+        WHERE id = ${planId}
+      `;
+    }
+
+    if (updates.days !== undefined) {
+      await sql`
+        UPDATE subscription_plans 
+        SET days = ${updates.days}
+        WHERE id = ${planId}
+      `;
+    }
+
+    if (updates.price !== undefined) {
+      await sql`
+        UPDATE subscription_plans 
+        SET price = ${updates.price}
+        WHERE id = ${planId}
+      `;
+    }
+
+    if (updates.description) {
+      await sql`
+        UPDATE subscription_plans 
+        SET description = ${updates.description}
+        WHERE id = ${planId}
+      `;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error updating subscription plan:', error);
+    return false;
+  }
+}
+
+export async function deleteSubscriptionPlan(planId: string): Promise<boolean> {
+  if (!isNeonConfigured()) {
+    return false;
+  }
+
+  try {
+    await sql`
+      DELETE FROM subscription_plans WHERE id = ${planId}
+    `;
+    return true;
+  } catch (error) {
+    console.error('Error deleting subscription plan:', error);
+    return false;
+  }
+}
+
+// User purchase functions
+export async function getAllUserPurchases(): Promise<UserPurchase[]> {
+  if (!isNeonConfigured()) {
+    return [];
+  }
+
+  try {
+    const result = await sql`
+      SELECT 
+        up.*,
+        sp.name as plan_name
+      FROM user_purchases up
+      LEFT JOIN subscription_plans sp ON up.plan_id = sp.id
+      ORDER BY up.created_at DESC
+    `;
+    return result as UserPurchase[];
+  } catch (error) {
+    console.error('Error getting user purchases:', error);
+    return [];
+  }
+}
+
+export async function createUserPurchase(
+  userEmail: string,
+  planId: string,
+  daysAdded: number,
+  amountPaid: number,
+  paymentMethod: string = 'manual'
+): Promise<UserPurchase | null> {
+  if (!isNeonConfigured()) {
+    return null;
+  }
+
+  try {
+    // Get user ID from email
+    const user = await getUserByEmail(userEmail);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const result = await sql`
+      INSERT INTO user_purchases (user_id, plan_id, days_added, amount_paid, payment_method)
+      VALUES (${user.id}, ${planId}, ${daysAdded}, ${amountPaid}, ${paymentMethod})
+      RETURNING *
+    `;
+    return result[0] as UserPurchase;
+  } catch (error) {
+    console.error('Error creating user purchase:', error);
+    return null;
+  }
+}
+
+// Login attempt functions
+export async function logLoginAttempt(
+  ipAddress: string, 
+  userEmail: string, 
+  success: boolean
+): Promise<void> {
+  if (!isNeonConfigured()) {
+    console.warn('Neon not configured, skipping login attempt log');
+    return;
+  }
+
+  try {
+    await sql`
+      INSERT INTO login_attempts (ip_address, user_email, success)
+      VALUES (${ipAddress}, ${userEmail}, ${success})
+    `;
+  } catch (error) {
+    console.error('Error logging login attempt:', error);
+  }
+}
+
+// Alias functions for compatibility
+export const getUsers = getAllUsers;
