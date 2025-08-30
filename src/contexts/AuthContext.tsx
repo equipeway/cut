@@ -39,23 +39,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }, []);
 
-  const login = async (email: string, password: string, ipAddress: string) => {
-    try {
-      console.log('Login attempt:', { email, ipAddress });
-
-      // Check if IP is banned
-      const ipBanned = await isIPBanned(ipAddress);
-      if (ipBanned) {
-        console.log('IP is banned');
-        return { success: false, error: 'IP address is banned' };
-      }
-
-      // Check recent failed attempts
-      const recentAttempts = await getRecentFailedAttempts(ipAddress, 1);
-      if (recentAttempts.length >= 5) {
-        await banIP(ipAddress, 'Too many failed login attempts', 24);
-        return { success: false, error: 'Too many failed attempts. IP banned for 24 hours.' };
-      }
 
       // Get user
       const userData = await getUserByEmail(email);
@@ -74,18 +57,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: 'Conta banida' };
       }
 
-      // Check IP restrictions
-      if (userData.allowed_ips.length > 0 && !userData.allowed_ips.includes(ipAddress)) {
-        await addLoginAttempt({
-          ip_address: ipAddress,
-          user_email: email,
-          success: false
-        });
-        return { success: false, error: 'IP não autorizado' };
-      }
-
-      // Verify password (simple comparison for now)
-      console.log('Password check:', { provided: password, stored: userData.password_hash });
       if (password !== userData.password_hash) {
         await addLoginAttempt({
           ip_address: ipAddress,
