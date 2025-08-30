@@ -877,39 +877,39 @@ export function Dashboard() {
                 <div className={`p-4 rounded-2xl border ${
                   (user?.subscription_days || 0) > 30 
                     ? 'bg-emerald-500/10 border-emerald-500/20' 
-                    : (user?.subscription_days || 0) > 7
-                    ? 'bg-yellow-500/10 border-yellow-500/20'
-                    : 'bg-red-500/10 border-red-500/20'
+                    : ((user?.subscription_days || 0) > 7
+                      ? 'bg-yellow-500/10 border-yellow-500/20'
+                      : 'bg-red-500/10 border-red-500/20')
                 }`}>
                   <div className="flex items-center gap-2 mb-2">
                     {(user?.subscription_days || 0) > 30 ? (
                       <CheckCircle className="w-4 h-4 text-emerald-400" />
-                    ) : (user?.subscription_days || 0) > 7 ? (
+                    ) : ((user?.subscription_days || 0) > 7 ? (
                       <AlertTriangle className="w-4 h-4 text-yellow-400" />
                     ) : (
                       <XCircle className="w-4 h-4 text-red-400" />
-                    )}
+                    ))}
                     <span className={`text-sm font-medium ${
                       (user?.subscription_days || 0) > 30 
                         ? 'text-emerald-300' 
-                        : (user?.subscription_days || 0) > 7
-                        ? 'text-yellow-300'
-                        : 'text-red-300'
+                        : ((user?.subscription_days || 0) > 7
+                          ? 'text-yellow-300'
+                          : 'text-red-300')
                     }`}>
                       {(user?.subscription_days || 0) > 30 
                         ? 'Assinatura Ativa' 
-                        : (user?.subscription_days || 0) > 7
-                        ? 'Renovação Próxima'
-                        : 'Assinatura Expirada'
+                        : ((user?.subscription_days || 0) > 7
+                          ? 'Renovação Próxima'
+                          : 'Assinatura Expirada')
                       }
                     </span>
                   </div>
                   <p className="text-xs text-gray-400">
                     {(user?.subscription_days || 0) > 30 
                       ? 'Sua assinatura está em dia' 
-                      : (user?.subscription_days || 0) > 7
-                      ? 'Considere renovar sua assinatura'
-                      : 'Renove para continuar usando'
+                      : ((user?.subscription_days || 0) > 7
+                        ? 'Considere renovar sua assinatura'
+                        : 'Renove para continuar usando')
                     }
                   </p>
                 </div>
