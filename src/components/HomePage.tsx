@@ -17,6 +17,46 @@ import {
   ExternalLink
 } from 'lucide-react';
 
+// Mock plans for demo
+const mockPlans: SubscriptionPlan[] = [
+  {
+    id: '1',
+    name: 'Plano Básico',
+    days: 7,
+    price: 9.90,
+    description: 'Ideal para testes e uso básico',
+    is_active: true,
+    created_at: new Date().toISOString()
+  },
+  {
+    id: '2',
+    name: 'Plano Standard',
+    days: 30,
+    price: 29.90,
+    description: 'Perfeito para uso regular',
+    is_active: true,
+    created_at: new Date().toISOString()
+  },
+  {
+    id: '3',
+    name: 'Plano Premium',
+    days: 90,
+    price: 79.90,
+    description: 'Melhor custo-benefício',
+    is_active: true,
+    created_at: new Date().toISOString()
+  },
+  {
+    id: '4',
+    name: 'Plano Ultimate',
+    days: 365,
+    price: 299.90,
+    description: 'Acesso completo por 1 ano',
+    is_active: true,
+    created_at: new Date().toISOString()
+  }
+];
+
 interface PlanCardProps {
   plan: SubscriptionPlan;
   isPopular?: boolean;
@@ -124,93 +164,26 @@ export function HomePage() {
 
   const loadPlans = async () => {
     try {
-      // Check if Supabase is configured
-      if (!isSupabaseConfigured()) {
-        // Use mock plans for demo
-        const mockPlans: SubscriptionPlan[] = [
-          {
-            id: '1',
-            name: 'Plano Básico',
-            days: 7,
-            price: 9.90,
-            description: 'Ideal para testes e uso básico',
-            is_active: true,
-            created_at: new Date().toISOString()
-          },
-          {
-            id: '2',
-            name: 'Plano Standard',
-            days: 30,
-            price: 29.90,
-            description: 'Perfeito para uso regular',
-            is_active: true,
-            created_at: new Date().toISOString()
-          },
-          {
-            id: '3',
-            name: 'Plano Premium',
-            days: 90,
-            price: 79.90,
-            description: 'Melhor custo-benefício',
-            is_active: true,
-            created_at: new Date().toISOString()
-          },
-          {
-            id: '4',
-            name: 'Plano Ultimate',
-            days: 365,
-            price: 299.90,
-            description: 'Acesso completo por 1 ano',
-            is_active: true,
-            created_at: new Date().toISOString()
+      setLoading(true);
+      
+      // Always start with mock plans for immediate display
+      setPlans(mockPlans);
+      
+      // Try to load from Supabase if configured
+      if (isSupabaseConfigured()) {
+        try {
+          const plansData = await getSubscriptionPlans();
+          if (plansData && plansData.length > 0) {
+            setPlans(plansData);
           }
-        ];
-        setPlans(mockPlans);
-      } else {
-        const plansData = await getSubscriptionPlans();
-        setPlans(plansData);
+        } catch (error) {
+          console.warn('Failed to load plans from Supabase, using mock data:', error);
+          // Keep mock plans on error
+        }
       }
     } catch (error) {
       console.error('Error loading plans:', error);
-      // Fallback to mock plans on error
-      const mockPlans: SubscriptionPlan[] = [
-        {
-          id: '1',
-          name: 'Plano Básico',
-          days: 7,
-          price: 9.90,
-          description: 'Ideal para testes e uso básico',
-          is_active: true,
-          created_at: new Date().toISOString()
-        },
-        {
-          id: '2',
-          name: 'Plano Standard',
-          days: 30,
-          price: 29.90,
-          description: 'Perfeito para uso regular',
-          is_active: true,
-          created_at: new Date().toISOString()
-        },
-        {
-          id: '3',
-          name: 'Plano Premium',
-          days: 90,
-          price: 79.90,
-          description: 'Melhor custo-benefício',
-          is_active: true,
-          created_at: new Date().toISOString()
-        },
-        {
-          id: '4',
-          name: 'Plano Ultimate',
-          days: 365,
-          price: 299.90,
-          description: 'Acesso completo por 1 ano',
-          is_active: true,
-          created_at: new Date().toISOString()
-        }
-      ];
+      // Ensure mock plans are set even on error
       setPlans(mockPlans);
     } finally {
       setLoading(false);
@@ -230,7 +203,7 @@ export function HomePage() {
       // Simulate purchase processing
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      alert(`Compra realizada com sucesso!\n\nEmail: ${customerEmail}\nPlano: ${selectedPlan.name}\nDuração: ${selectedPlan.days} dias\nValor: R$ ${selectedPlan.price.toFixed(2)}\n\nSeu acesso foi ativado!`);
+      alert(`Compra realizada com sucesso!\n\nEmail: ${customerEmail}\nPlano: ${selectedPlan.name}\nDuração: ${selectedPlan.days} dias\nValor: R$ ${selectedPlan.price.toFixed(2)}\n\nSeu acesso foi ativado! Use suas credenciais para fazer login.`);
       
       setShowPurchaseModal(false);
       setCustomerEmail('');
@@ -241,6 +214,22 @@ export function HomePage() {
     } finally {
       setPurchaseLoading(false);
     }
+  };
+
+  const getPlanIcon = (name: string) => {
+    if (name.includes('Básico')) return <Shield className="w-6 h-6" />;
+    if (name.includes('Standard')) return <Star className="w-6 h-6" />;
+    if (name.includes('Premium')) return <Zap className="w-6 h-6" />;
+    if (name.includes('Ultimate')) return <Crown className="w-6 h-6" />;
+    return <Shield className="w-6 h-6" />;
+  };
+
+  const getPlanGradient = (name: string) => {
+    if (name.includes('Básico')) return 'from-blue-500 to-cyan-500';
+    if (name.includes('Standard')) return 'from-purple-500 to-pink-500';
+    if (name.includes('Premium')) return 'from-orange-500 to-red-500';
+    if (name.includes('Ultimate')) return 'from-yellow-400 to-orange-500';
+    return 'from-gray-500 to-gray-600';
   };
 
   if (loading) {
@@ -496,20 +485,4 @@ export function HomePage() {
       )}
     </div>
   );
-
-  function getPlanIcon(name: string) {
-    if (name.includes('Básico')) return <Shield className="w-6 h-6" />;
-    if (name.includes('Standard')) return <Star className="w-6 h-6" />;
-    if (name.includes('Premium')) return <Zap className="w-6 h-6" />;
-    if (name.includes('Ultimate')) return <Crown className="w-6 h-6" />;
-    return <Shield className="w-6 h-6" />;
-  }
-
-  function getPlanGradient(name: string) {
-    if (name.includes('Básico')) return 'from-blue-500 to-cyan-500';
-    if (name.includes('Standard')) return 'from-purple-500 to-pink-500';
-    if (name.includes('Premium')) return 'from-orange-500 to-red-500';
-    if (name.includes('Ultimate')) return 'from-yellow-400 to-orange-500';
-    return 'from-gray-500 to-gray-600';
-  }
 }
