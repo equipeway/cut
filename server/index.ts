@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
-import path from 'path';
 import {
+  initDatabase,
   getUserByEmail,
   getUserById,
   getUsers,
@@ -21,7 +21,8 @@ import {
   createPurchase,
   getSystemStats,
   logLoginAttempt,
-  isIPBanned
+  isIPBanned,
+  isDatabaseReady
 } from './database.js';
 
 const app = express();
@@ -38,6 +39,24 @@ const getClientIP = (req: express.Request): string => {
          req.socket.remoteAddress || 
          '127.0.0.1';
 };
+
+// Initialize database on startup
+initDatabase().then(() => {
+  console.log('✅ Database initialized successfully');
+}).catch(error => {
+  console.error('❌ Failed to initialize database:', error);
+  process.exit(1);
+});
+
+// Health check
+app.get('/api/health', (req, res) => {
+  const dbReady = isDatabaseReady();
+  res.json({ 
+    status: dbReady ? 'ok' : 'error', 
+    database: dbReady ? 'connected' : 'disconnected',
+    timestamp: new Date().toISOString() 
+  });
+});
 
 // Auth routes
 app.post('/api/auth/login', async (req, res) => {
@@ -237,13 +256,8 @@ app.get('/api/stats', async (req, res) => {
   }
 });
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
-  console.log(`📊 Database: JSON file (server/database.json)`);
+  console.log(`📊 Database: SQLite (server/terramail.db)`);
   console.log(`🔐 Admin padrão: admin@terramail.com / admin123`);
 });
