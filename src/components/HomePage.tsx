@@ -12,11 +12,13 @@ interface PlanCardProps {
 
 function getPlanIcon(planName: string) {
   switch (planName.toLowerCase()) {
-    case 'básico':
+    case 'plano básico':
       return <Shield className="w-6 h-6" />;
-    case 'premium':
+    case 'plano standard':
+      return <Activity className="w-6 h-6" />;
+    case 'plano premium':
       return <Zap className="w-6 h-6" />;
-    case 'profissional':
+    case 'plano ultimate':
       return <Users className="w-6 h-6" />;
     default:
       return <Shield className="w-6 h-6" />;
