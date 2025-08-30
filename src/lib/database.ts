@@ -213,7 +213,7 @@ export const getUserSession = async (userId: string): Promise<ProcessingSession 
   
   // Mock session for hardcoded users
   return {
-    id: '1',
+    id: '550e8400-e29b-41d4-a716-446655440003',
     user_id: userId,
     approved_count: 0,
     rejected_count: 0,
@@ -239,7 +239,7 @@ export const createSession = async (userId: string): Promise<ProcessingSession> 
   
   // Mock session for hardcoded users
   return {
-    id: '1',
+    id: '550e8400-e29b-41d4-a716-446655440004',
     user_id: userId,
     approved_count: 0,
     rejected_count: 0,
@@ -267,7 +267,7 @@ export const updateSession = async (sessionId: string, updates: Partial<Processi
   // Mock update for hardcoded users
   return {
     id: sessionId,
-    user_id: '1',
+    user_id: userId || '550e8400-e29b-41d4-a716-446655440001',
     approved_count: updates.approved_count || 0,
     rejected_count: updates.rejected_count || 0,
     loaded_count: updates.loaded_count || 0,
