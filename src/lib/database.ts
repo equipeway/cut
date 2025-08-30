@@ -133,6 +133,8 @@ export const deleteUser = async (userId: string): Promise<void> => {
 };
 
 // Authentication
+export const verifyPassword = async (password: string, hash: string): Promise<boolean> => {
+  try {
     // Simple password verification for demo
     const isValid = password === hash;
     return isValid;
