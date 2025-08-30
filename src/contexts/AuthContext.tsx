@@ -46,18 +46,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Carregar usuário do localStorage se existir
-    const savedUser = localStorage.getItem('terramail_user');
-    if (savedUser) {
-      try {
-        const userData = JSON.parse(savedUser);
-        setUser(userData);
-      } catch (error) {
-        console.error('Error parsing saved user data:', error);
-        localStorage.removeItem('terramail_user');
+    const loadSavedUser = async () => {
+      const savedUser = localStorage.getItem('terramail_user');
+      if (savedUser) {
+        try {
+          const userData = JSON.parse(savedUser);
+          
+          // Se Supabase está configurado, validar se o usuário existe no banco
+          if (isSupabaseConfigured()) {
+            const dbUser = await getUserByEmail(userData.email);
+            if (!dbUser || dbUser.id !== userData.id) {
+              // Usuário não existe no Supabase ou ID não confere, fazer logout
+              console.log('Usuário do localStorage não existe no Supabase, fazendo logout');
+              localStorage.removeItem('terramail_user');
+              setUser(null);
+              setLoading(false);
+              return;
+            }
+          }
+          
+          setUser(userData);
+        } catch (error) {
+          console.error('Error parsing saved user data:', error);
+          localStorage.removeItem('terramail_user');
+        }
       }
-    }
-    setLoading(false);
+      setLoading(false);
+    };
+    
+    loadSavedUser();
   }, []);
 
   const login = async (email: string, password: string) => {
