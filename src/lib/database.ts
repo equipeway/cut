@@ -193,6 +193,12 @@ export const createUser = async (userData: {
       // Hash da senha
       const hashedPassword = await bcrypt.hash(userData.password, 10);
       
+      console.log('Creating user with data:', {
+        email: userData.email,
+        role: userData.role || 'user',
+        subscription_days: userData.subscription_days || 0
+      });
+      
       const { data, error } = await supabase
         .from('users')
         .insert({
@@ -207,9 +213,16 @@ export const createUser = async (userData: {
       
       if (error) {
         console.error('Error creating user:', error);
+        console.error('Error details:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
         throw error;
       }
       
+      console.log('User created successfully:', data);
       return data;
     } catch (error) {
       console.error('Supabase error:', error);
@@ -295,13 +308,9 @@ export const getUserSession = async (userId: string): Promise<ProcessingSession 
         .from('processing_sessions')
         .select('*')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
       
       if (error) {
-        if (error.code === 'PGRST116') {
-          // No session found - this is expected for new users
-          return null;
-        }
         console.error('Error fetching session:', error);
         return null;
       }
@@ -325,6 +334,8 @@ export const createSession = async (userId: string): Promise<ProcessingSession> 
         throw new Error('User ID is required to create session');
       }
 
+      console.log('Creating session for user:', userId);
+      
       const { data, error } = await supabase
         .from('processing_sessions')
         .insert({
@@ -335,10 +346,16 @@ export const createSession = async (userId: string): Promise<ProcessingSession> 
       
       if (error) {
         console.error('Error creating session:', error);
-        console.error('Error details:', error.message, error.code);
+        console.error('Error details:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
         throw error;
       }
       
+      console.log('Session created successfully:', data);
       return data;
     } catch (error) {
       console.error('Supabase error:', error);
