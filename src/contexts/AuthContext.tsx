@@ -1,13 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { isSupabaseConfigured } from '../lib/supabase';
 import { 
   User, 
   getUserByEmail, 
   addLoginAttempt, 
   getRecentFailedAttempts, 
   isIPBanned, 
-  banIP,
-  verifyPassword
+  banIP
 } from '../lib/database';
 
 interface AuthContextType {
@@ -25,13 +23,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in
     const savedUser = localStorage.getItem('terramail_current_user');
     if (savedUser) {
-      const userData = JSON.parse(savedUser);
-      if (!userData.is_banned) {
-        setUser(userData);
-      } else {
+      try {
+        const userData = JSON.parse(savedUser);
+        if (!userData.is_banned) {
+          setUser(userData);
+        } else {
+          localStorage.removeItem('terramail_current_user');
+        }
+      } catch (error) {
         localStorage.removeItem('terramail_current_user');
       }
     }
@@ -40,86 +41,75 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string, ipAddress: string) => {
     try {
+      console.log('Login attempt:', { email, ipAddress });
+
       // Check if IP is banned
-      if (await isIPBanned(ipAddress)) {
+      const ipBanned = await isIPBanned(ipAddress);
+      if (ipBanned) {
+        console.log('IP is banned');
         return { success: false, error: 'IP address is banned' };
       }
 
-      // Check recent failed attempts for this IP
+      // Check recent failed attempts
       const recentAttempts = await getRecentFailedAttempts(ipAddress, 1);
       if (recentAttempts.length >= 5) {
-        // Auto-ban IP
         await banIP(ipAddress, 'Too many failed login attempts', 24);
         return { success: false, error: 'Too many failed attempts. IP banned for 24 hours.' };
       }
 
-      // Get user data
+      // Get user
       const userData = await getUserByEmail(email);
+      console.log('User found:', userData ? 'Yes' : 'No');
+      
       if (!userData) {
-        try {
-          await addLoginAttempt({
-            ip_address: ipAddress,
-            user_email: email,
-            success: false
-          });
-        } catch (logError) {
-          console.warn('Failed to log login attempt:', logError);
-        }
-        return { success: false, error: 'Invalid credentials' };
+        await addLoginAttempt({
+          ip_address: ipAddress,
+          user_email: email,
+          success: false
+        });
+        return { success: false, error: 'Email ou senha incorretos' };
       }
 
       if (userData.is_banned) {
-        return { success: false, error: 'Account is banned' };
+        return { success: false, error: 'Conta banida' };
       }
 
       // Check IP restrictions
       if (userData.allowed_ips.length > 0 && !userData.allowed_ips.includes(ipAddress)) {
-        try {
-          await addLoginAttempt({
-            ip_address: ipAddress,
-            user_email: email,
-            success: false
-          });
-        } catch (logError) {
-          console.warn('Failed to log login attempt:', logError);
-        }
-        return { success: false, error: 'IP address not allowed' };
-      }
-
-      // Verify password
-      const isValidPassword = await verifyPassword(password, userData.password_hash);
-      if (!isValidPassword) {
-        try {
-          await addLoginAttempt({
-            ip_address: ipAddress,
-            user_email: email,
-            success: false
-          });
-        } catch (logError) {
-          console.warn('Failed to log login attempt:', logError);
-        }
-        return { success: false, error: 'Invalid credentials' };
-      }
-
-      // Log successful attempt
-      try {
         await addLoginAttempt({
           ip_address: ipAddress,
           user_email: email,
-          success: true
+          success: false
         });
-      } catch (logError) {
-        console.warn('Failed to log login attempt:', logError);
+        return { success: false, error: 'IP não autorizado' };
       }
 
-      // Save user session
+      // Verify password (simple comparison for now)
+      console.log('Password check:', { provided: password, stored: userData.password_hash });
+      if (password !== userData.password_hash) {
+        await addLoginAttempt({
+          ip_address: ipAddress,
+          user_email: email,
+          success: false
+        });
+        return { success: false, error: 'Email ou senha incorretos' };
+      }
+
+      // Success
+      await addLoginAttempt({
+        ip_address: ipAddress,
+        user_email: email,
+        success: true
+      });
+
       localStorage.setItem('terramail_current_user', JSON.stringify(userData));
       setUser(userData);
+      console.log('Login successful');
 
       return { success: true };
     } catch (error) {
       console.error('Login error:', error);
-      return { success: false, error: 'Login failed' };
+      return { success: false, error: 'Erro interno do servidor' };
     }
   };
 

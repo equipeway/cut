@@ -23,10 +23,9 @@ export function AdminLogin() {
     const result = await login(email, password, ipAddress);
     
     if (result.success) {
-      // Redirect to dashboard after successful login
       navigate('/dashboard');
     } else {
-      setError(result.error || 'Login failed');
+      setError(result.error || 'Falha no login');
     }
     
     setLoading(false);
@@ -64,24 +63,6 @@ export function AdminLogin() {
             </div>
           )}
 
-          {/* Demo Credentials */}
-          <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-4 mb-6">
-            <h4 className="text-purple-300 font-medium mb-2 flex items-center gap-2">
-              <Shield className="w-4 h-4" />
-              Credenciais Demo
-            </h4>
-            <div className="space-y-1 text-sm">
-              <div className="flex justify-between text-gray-300">
-                <span>Email:</span>
-                <code className="text-purple-300 bg-purple-500/10 px-2 py-1 rounded">admin@terramail.com</code>
-              </div>
-              <div className="flex justify-between text-gray-300">
-                <span>Senha:</span>
-                <code className="text-purple-300 bg-purple-500/10 px-2 py-1 rounded">admin123</code>
-              </div>
-            </div>
-          </div>
-
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
@@ -95,7 +76,7 @@ export function AdminLogin() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-12 pr-4 py-4 bg-gray-800/50 border border-purple-500/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all"
-                  placeholder="admin@terramail.com"
+                  placeholder="Digite o email do admin"
                   required
                 />
               </div>
@@ -112,7 +93,7 @@ export function AdminLogin() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-12 pr-4 py-4 bg-gray-800/50 border border-purple-500/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all"
-                  placeholder="admin123"
+                  placeholder="Digite a senha"
                   required
                 />
               </div>

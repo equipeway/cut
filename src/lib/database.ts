@@ -1,5 +1,4 @@
 import { supabase } from './supabase';
-import bcrypt from 'bcryptjs';
 
 export interface User {
   id: string;
@@ -91,15 +90,11 @@ export const createUser = async (userData: {
   subscription_days?: number;
   allowed_ips?: string[];
 }): Promise<User> => {
-  // For demo purposes, store password as-is
-  // In production, you would hash the password properly
-  const passwordHash = userData.password;
-  
   const { data, error } = await supabase
     .from('users')
     .insert({
       email: userData.email,
-      password_hash: passwordHash,
+      password_hash: userData.password,
       role: userData.role || 'user',
       subscription_days: userData.subscription_days || 0,
       allowed_ips: userData.allowed_ips || []
@@ -130,18 +125,6 @@ export const deleteUser = async (userId: string): Promise<void> => {
     .eq('id', userId);
   
   if (error) throw error;
-};
-
-// Authentication
-export const verifyPassword = async (password: string, hash: string): Promise<boolean> => {
-  try {
-    // Simple password verification for demo
-    const isValid = password === hash;
-    return isValid;
-  } catch (error) {
-    console.error('Password verification error:', error);
-    return false;
-  }
 };
 
 // Login attempts
@@ -200,7 +183,7 @@ export const isIPBanned = async (ipAddress: string): Promise<boolean> => {
     .eq('ip_address', ipAddress)
     .maybeSingle();
   
-  if (error && error.code !== 'PGRST116') throw error;
+  if (error) throw error;
   if (!data) return false;
   
   if (!data.banned_until) return true;
@@ -236,9 +219,9 @@ export const getUserSession = async (userId: string): Promise<ProcessingSession 
     .from('processing_sessions')
     .select('*')
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
   
-  if (error && error.code !== 'PGRST116') throw error;
+  if (error) throw error;
   return data;
 };
 
