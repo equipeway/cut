@@ -297,8 +297,13 @@ export const getUserSession = async (userId: string): Promise<ProcessingSession 
         .eq('user_id', userId)
         .single();
       
-      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // No session found - this is expected for new users
+          return null;
+        }
         console.error('Error fetching session:', error);
+        return null;
       }
       
       return data || null;
@@ -315,6 +320,11 @@ export const getUserSession = async (userId: string): Promise<ProcessingSession 
 export const createSession = async (userId: string): Promise<ProcessingSession> => {
   if (isSupabaseConfigured()) {
     try {
+      // Ensure we have a valid user ID
+      if (!userId) {
+        throw new Error('User ID is required to create session');
+      }
+
       const { data, error } = await supabase
         .from('processing_sessions')
         .insert({
@@ -325,6 +335,7 @@ export const createSession = async (userId: string): Promise<ProcessingSession> 
       
       if (error) {
         console.error('Error creating session:', error);
+        console.error('Error details:', error.message, error.code);
         throw error;
       }
       

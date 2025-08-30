@@ -111,11 +111,18 @@ export function Dashboard() {
   const loadSession = async () => {
     if (!user) return;
 
-    let userSession = await getUserSession(user.id);
-    if (!userSession) {
-      userSession = await createSession(user.id);
+    try {
+      let userSession = await getUserSession(user.id);
+      if (!userSession) {
+        console.log('No session found, creating new session for user:', user.id);
+        userSession = await createSession(user.id);
+        addNotification('info', 'Nova sessão criada');
+      }
+      setSession(userSession);
+    } catch (error) {
+      console.error('Error loading/creating session:', error);
+      addNotification('error', 'Erro ao carregar sessão: ' + (error as Error).message);
     }
-    setSession(userSession);
   };
 
   const updateSessionData = async (updates: Partial<ProcessingSession>) => {
