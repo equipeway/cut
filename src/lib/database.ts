@@ -221,14 +221,15 @@ export const getUserSession = async (userId: string): Promise<ProcessingSession 
       .from('processing_sessions')
       .select('*')
       .eq('user_id', userId)
-      .maybeSingle();
+      .order('created_at', { ascending: false })
+      .limit(1);
 
     if (error) {
       console.error('Error fetching user session:', error);
       throw error;
     }
 
-    return data;
+    return data && data.length > 0 ? data[0] : null;
   } catch (error) {
     console.error('Error in getUserSession:', error);
     throw error;
