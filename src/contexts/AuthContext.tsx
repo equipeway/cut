@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { getUserByEmail, logLoginAttempt, initDatabase, User } from '../lib/database';
+import { loginUser, checkHealth, User } from '../lib/api';
 
 interface AuthContextType {
   user: User | null;
@@ -18,30 +18,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        // Initialize database first
-        await initDatabase();
-        
+        // Check if backend is available
+        const backendHealthy = await checkHealth();
+        if (!backendHealthy) {
+          console.warn('Backend não está disponível');
+          setLoading(false);
+          return;
+        }
+
         const savedUser = localStorage.getItem('terramail_user');
         if (savedUser) {
           const userData = JSON.parse(savedUser);
-          
-          // Validate user still exists in database
-          const dbUser = await getUserByEmail(userData.email);
-          if (dbUser && dbUser.id === userData.id) {
-            setUser({
-              id: dbUser.id,
-              email: dbUser.email,
-              password: dbUser.password,
-              role: dbUser.role,
-              subscription_days: dbUser.subscription_days,
-              allowed_ips: dbUser.allowed_ips,
-              is_banned: dbUser.is_banned,
-              created_at: dbUser.created_at,
-              updated_at: dbUser.updated_at
-            });
-          } else {
-            localStorage.removeItem('terramail_user');
-          }
+          setUser(userData);
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
@@ -55,57 +43,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string, ipAddress: string = '127.0.0.1') => {
-    console.log('Login attempt for email:', email);
-
     try {
-      const foundUser = await getUserByEmail(email);
+      const result = await loginUser(email, password);
       
-      console.log('User found in database:', foundUser ? 'Yes' : 'No');
-      
-      if (!foundUser) {
-        await logLoginAttempt(ipAddress, email, false);
-        console.log('Login failed: Email not found');
-        return { success: false, error: 'Email não encontrado' };
-      }
-
-      console.log('Comparing password...');
-      const passwordMatch = password === foundUser.password;
-      console.log('Password match result:', passwordMatch);
-      
-      if (!passwordMatch) {
-        await logLoginAttempt(ipAddress, email, false);
-        return { success: false, error: 'Senha incorreta' };
-      }
-
-      if (foundUser.is_banned) {
-        await logLoginAttempt(ipAddress, email, false);
-        return { success: false, error: 'Conta banida' };
-      }
-
-      // Login successful
-      console.log('Login successful for user:', foundUser.email);
-      const userData: User = {
-        id: foundUser.id,
-        email: foundUser.email,
-        password: foundUser.password,
-        role: foundUser.role,
-        subscription_days: foundUser.subscription_days,
-        allowed_ips: foundUser.allowed_ips,
-        is_banned: foundUser.is_banned,
-        created_at: foundUser.created_at,
-        updated_at: foundUser.updated_at
-      };
-
-      localStorage.setItem('terramail_user', JSON.stringify(userData));
-      setUser(userData);
-      await logLoginAttempt(ipAddress, email, true);
+      localStorage.setItem('terramail_user', JSON.stringify(result.user));
+      setUser(result.user);
 
       return { success: true };
     } catch (error) {
       console.error('Login error:', error);
       return { 
         success: false, 
-        error: 'Erro interno do sistema. Tente novamente.' 
+        error: error instanceof Error ? error.message : 'Erro interno do sistema' 
       };
     }
   };

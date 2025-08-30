@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Shield, LogIn, Clock, Check, ExternalLink, Zap, Users, ArrowRight, Star, Activity, Package, AlertTriangle } from 'lucide-react';
-import { getSubscriptionPlans, SubscriptionPlan, isDatabaseReady } from '../lib/database';
+import { getSubscriptionPlans, SubscriptionPlan } from '../lib/api';
 
 interface PlanCardProps {
   plan: SubscriptionPlan;
@@ -110,15 +110,11 @@ export function HomePage() {
       setLoading(true);
       setError(null);
 
-      if (isDatabaseReady()) {
-        const plansData = await getSubscriptionPlans();
-        setPlans(plansData);
-      } else {
-        setError('Banco de dados não está pronto.');
-      }
+      const plansData = await getSubscriptionPlans();
+      setPlans(plansData);
     } catch (error) {
       console.error('Error loading plans:', error);
-      setError('Erro ao carregar planos. Tente novamente.');
+      setError('Erro ao carregar planos. Verifique se o servidor está rodando.');
     } finally {
       setLoading(false);
     }

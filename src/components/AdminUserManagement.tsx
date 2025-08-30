@@ -9,10 +9,9 @@ import {
   createSubscriptionPlan,
   updateSubscriptionPlan,
   deleteSubscriptionPlan,
-  createPurchase,
   User,
   SubscriptionPlan
-} from '../lib/database';
+} from '../lib/api';
 import { 
   Users, 
   Plus, 

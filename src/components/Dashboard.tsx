@@ -3,10 +3,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { 
   ProcessingSession,
   getUserSession,
-  createSession,
-  updateSession,
-  isDatabaseReady
-} from '../lib/database';
+  updateSession
+} from '../lib/api';
 import { AdminUserManagement } from './AdminUserManagement';
 import { 
   Play, 
@@ -76,11 +74,7 @@ export function Dashboard() {
 
   useEffect(() => {
     if (user) {
-      if (isDatabaseReady()) {
-        loadSession();
-      } else {
-        setDatabaseError('Banco de dados não está pronto.');
-      }
+      loadSession();
       // Simulate real-time system updates
       const interval = setInterval(() => {
         setSystemInfo(prev => ({
@@ -114,10 +108,7 @@ export function Dashboard() {
     if (!user) return;
 
     try {
-      let userSession = await getUserSession(user.id);
-      if (!userSession) {
-        userSession = await createSession(user.id);
-      }
+      const userSession = await getUserSession(user.id);
       setSession(userSession);
       setDatabaseError(null);
     } catch (error) {
@@ -142,11 +133,6 @@ export function Dashboard() {
   };
 
   const startProcessing = async () => {
-    if (!isDatabaseReady()) {
-      addNotification('error', 'Banco de dados não está pronto.');
-      return;
-    }
-
     let lines = inputList.split('\n').filter(line => line.trim());
     if (lines.length === 0) {
       addNotification('warning', 'Por favor, insira itens para processar');
@@ -550,22 +536,6 @@ export function Dashboard() {
               <div className="p-8">
                 <AdminUserManagement />
               </div>
-            </div>
-          ) : (
-            <div className="bg-gray-900/60 backdrop-blur-xl rounded-3xl border border-red-500/20 shadow-2xl p-12 text-center">
-              <div className="w-20 h-20 bg-red-500/20 rounded-3xl flex items-center justify-center mx-auto mb-8">
-                <AlertTriangle className="w-10 h-10 text-red-400" />
-              </div>
-              <h2 className="text-3xl font-bold text-white mb-4">Banco de Dados Não Configurado</h2>
-              <p className="text-gray-300 text-lg mb-8">
-                Erro ao inicializar o banco de dados SQLite.
-              </p>
-              <button
-                onClick={() => setShowAdmin(false)}
-                className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-8 py-4 rounded-2xl font-bold transition-all shadow-lg shadow-purple-500/25 hover:scale-105"
-              >
-                Voltar ao Dashboard
-              </button>
             </div>
           )}
         </div>
