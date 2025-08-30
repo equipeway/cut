@@ -94,7 +94,7 @@ export const getUserByEmail = async (email: string): Promise<User | null> => {
 
 export const getUsers = async (): Promise<User[]> => {
   if (!isSupabaseConfigured()) {
-    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
+    throw new Error('Supabase não configurado. Verifique as chaves da API no arquivo .env');
   }
 
   try {
@@ -105,6 +105,9 @@ export const getUsers = async (): Promise<User[]> => {
 
     if (error) {
       console.error('Error fetching users:', error);
+      if (error.message?.includes('Invalid API key')) {
+        throw new Error('Chaves da API do Supabase inválidas. Verifique VITE_SUPABASE_SERVICE_ROLE_KEY no arquivo .env');
+      }
       throw error;
     }
 

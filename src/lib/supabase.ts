@@ -26,9 +26,11 @@ export const supabaseAdmin = createClient(
 );
 // Check if Supabase is properly configured
 export const isSupabaseConfigured = () => {
-  return supabaseUrl && supabaseAnonKey && 
-         supabaseUrl !== defaultUrl && 
-         supabaseAnonKey !== defaultKey;
+  const hasValidUrl = supabaseUrl && supabaseUrl !== defaultUrl && supabaseUrl.includes('supabase.co');
+  const hasValidAnonKey = supabaseAnonKey && supabaseAnonKey !== defaultKey && supabaseAnonKey.length > 50;
+  const hasValidServiceKey = supabaseServiceKey && supabaseServiceKey !== defaultKey && supabaseServiceKey.length > 50;
+  
+  return hasValidUrl && hasValidAnonKey && hasValidServiceKey;
 };
 
 export type Database = {
