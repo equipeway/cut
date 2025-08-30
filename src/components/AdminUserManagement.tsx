@@ -125,9 +125,7 @@ export function AdminUserManagement() {
       await loadData();
     } catch (error) {
       console.error('Error creating user:', error);
-      alert('Usuário criado com sucesso (modo offline)');
-      setShowCreateUser(false);
-      await loadData();
+      alert(`Erro ao criar usuário: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
   };
 
