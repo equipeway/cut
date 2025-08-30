@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { isSupabaseConfigured } from '../lib/supabase';
 import { 
   User, 
   getUserByEmail, 
@@ -39,6 +40,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string, ipAddress: string) => {
     try {
+      // Check if Supabase is configured
+      if (!isSupabaseConfigured()) {
+        // Fallback to demo authentication
+        if (email === 'admin@terramail.com' && password === 'admin123') {
+          const demoUser: User = {
+            id: 'demo-admin-id',
+            email: 'admin@terramail.com',
+            password_hash: '',
+            role: 'admin',
+            subscription_days: 999,
+            allowed_ips: [],
+            is_banned: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          localStorage.setItem('terramail_current_user', JSON.stringify(demoUser));
+          setUser(demoUser);
+          return { success: true };
+        }
+        return { success: false, error: 'Demo mode: Use admin@terramail.com / admin123' };
+      }
+
       // Check if IP is banned
       if (await isIPBanned(ipAddress)) {
         return { success: false, error: 'IP address is banned' };
