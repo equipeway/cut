@@ -239,6 +239,35 @@ export function AdminUserManagement() {
     }
   };
 
+  const handleBanUser = async (userId: string, currentBanStatus: boolean) => {
+    try {
+      console.log(`${currentBanStatus ? 'Unbanning' : 'Banning'} user:`, userId);
+      
+      await updateUser(userId, { is_banned: !currentBanStatus });
+      addNotification('success', `Usuário ${!currentBanStatus ? 'banido' : 'desbanido'} com sucesso`);
+      await loadData(); // Reload from Supabase
+    } catch (error) {
+      console.error('Error banning/unbanning user:', error);
+      addNotification('error', `Erro ao ${currentBanStatus ? 'desbanir' : 'banir'} usuário`);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string, userEmail: string) => {
+    if (!window.confirm(`Tem certeza que deseja excluir o usuário ${userEmail}?`)) {
+      return;
+    }
+
+    try {
+      console.log('Deleting user:', userId);
+      await deleteUser(userId);
+      addNotification('success', `Usuário ${userEmail} excluído com sucesso`);
+      await loadData(); // Reload from Supabase
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      addNotification('error', 'Erro ao excluir usuário');
+    }
+  };
+
   const tabs = [
     { key: 'users', label: 'Usuários', icon: Users },
     { key: 'analytics', label: 'Analytics', icon: TrendingUp },

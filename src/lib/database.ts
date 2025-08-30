@@ -163,19 +163,22 @@ export const updateUser = async (userId: string, updates: Partial<User>): Promis
   }
 
   try {
+    console.log('Updating user:', userId, 'with updates:', updates);
+    
     const { data, error } = await supabase
       .from('users')
       .update(updates)
       .eq('id', userId)
       .select()
-      .limit(1);
+      .single();
 
     if (error) {
       console.error('Error updating user:', error);
       throw error;
     }
 
-    return data[0] || null;
+    console.log('User updated successfully:', data);
+    return data;
   } catch (error) {
     console.error('Error in updateUser:', error);
     throw error;
@@ -188,6 +191,8 @@ export const deleteUser = async (userId: string): Promise<void> => {
   }
 
   try {
+    console.log('Deleting user from Supabase:', userId);
+    
     const { error } = await supabase
       .from('users')
       .delete()
@@ -197,6 +202,8 @@ export const deleteUser = async (userId: string): Promise<void> => {
       console.error('Error deleting user:', error);
       throw error;
     }
+    
+    console.log('User deleted successfully from Supabase');
   } catch (error) {
     console.error('Error in deleteUser:', error);
     throw error;
