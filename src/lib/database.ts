@@ -1,4 +1,4 @@
-import { supabase, supabaseAdmin, isSupabaseConfigured } from './supabase';
+import { supabase, isSupabaseConfigured } from './supabase';
 import bcrypt from 'bcryptjs';
 
 export interface User {
@@ -94,20 +94,17 @@ export const getUserByEmail = async (email: string): Promise<User | null> => {
 
 export const getUsers = async (): Promise<User[]> => {
   if (!isSupabaseConfigured()) {
-    throw new Error('Supabase não configurado. Verifique as chaves da API no arquivo .env');
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
   }
 
   try {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabase
       .from('users')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
       console.error('Error fetching users:', error);
-      if (error.message?.includes('Invalid API key')) {
-        throw new Error('Chaves da API do Supabase inválidas. Verifique VITE_SUPABASE_SERVICE_ROLE_KEY no arquivo .env');
-      }
       throw error;
     }
 
@@ -143,7 +140,7 @@ export const createUser = async (userData: {
       console.log('Using plain text password as fallback');
     }
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabase
       .from('users')
       .insert({
         email: userData.email,
@@ -173,7 +170,7 @@ export const updateUser = async (userId: string, updates: Partial<User>): Promis
   }
 
   try {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabase
       .from('users')
       .update(updates)
       .eq('id', userId)
@@ -198,7 +195,7 @@ export const deleteUser = async (userId: string): Promise<void> => {
   }
 
   try {
-    const { error } = await supabaseAdmin
+    const { error } = await supabase
       .from('users')
       .delete()
       .eq('id', userId);

@@ -2,7 +2,6 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
 // Use placeholder values if environment variables are not set
 const defaultUrl = 'https://placeholder.supabase.co';
@@ -13,33 +12,11 @@ export const supabase = createClient(
   supabaseAnonKey || defaultKey
 );
 
-// Admin client with service role key (bypasses RLS)
-export const supabaseAdmin = createClient(
-  supabaseUrl || defaultUrl,
-  supabaseServiceKey || defaultKey,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
 // Check if Supabase is properly configured
 export const isSupabaseConfigured = () => {
-  const hasValidUrl = supabaseUrl && supabaseUrl !== defaultUrl && supabaseUrl.startsWith('https://');
-  const hasValidAnonKey = supabaseAnonKey && supabaseAnonKey !== defaultKey && supabaseAnonKey.length > 20;
-  const hasValidServiceKey = supabaseServiceKey && supabaseServiceKey !== defaultKey && supabaseServiceKey.length > 20;
-  
-  console.log('Supabase configuration check:', {
-    hasValidUrl,
-    hasValidAnonKey,
-    hasValidServiceKey,
-    url: supabaseUrl ? `${supabaseUrl.substring(0, 20)}...` : 'undefined',
-    anonKeyLength: supabaseAnonKey?.length || 0,
-    serviceKeyLength: supabaseServiceKey?.length || 0
-  });
-  
-  return hasValidUrl && hasValidAnonKey && hasValidServiceKey;
+  return supabaseUrl && supabaseAnonKey && 
+         supabaseUrl !== defaultUrl && 
+         supabaseAnonKey !== defaultKey;
 };
 
 export type Database = {

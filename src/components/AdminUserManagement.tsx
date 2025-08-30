@@ -90,7 +90,7 @@ export function AdminUserManagement() {
 
   const loadData = async () => {
     if (!isSupabaseConfigured()) {
-      setError('Supabase não configurado. Verifique as chaves da API no arquivo .env');
+      setError('Supabase não configurado');
       return;
     }
 
@@ -107,12 +107,7 @@ export function AdminUserManagement() {
       setStats(statsData);
     } catch (error) {
       console.error('Error loading data:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      if (errorMessage.includes('Invalid API key')) {
-        setError('Chaves da API do Supabase inválidas. Verifique VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY e VITE_SUPABASE_SERVICE_ROLE_KEY no arquivo .env');
-      } else {
-        setError(`Erro ao carregar dados: ${errorMessage}`);
-      }
+      setError('Erro ao carregar dados do Supabase. Verifique a configuração.');
     } finally {
       setLoading(false);
     }
