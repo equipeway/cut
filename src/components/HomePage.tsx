@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, LogIn, Crown, Clock, Check, ExternalLink, Zap, Users, ArrowRight, Star, Activity } from 'lucide-react';
+import { Shield, LogIn, Crown, Clock, Check, ExternalLink, Zap, Users, ArrowRight, Star, Activity, Package, AlertTriangle } from 'lucide-react';
 import { getSubscriptionPlans, SubscriptionPlan } from '../lib/database';
 import { isSupabaseConfigured } from '../lib/supabase';
-import { mockPlans } from '../data/mockPlans';
 
 interface PlanCardProps {
   plan: SubscriptionPlan;
@@ -101,6 +100,7 @@ function PlanCard({ plan, isPopular = false }: PlanCardProps) {
 export function HomePage() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadPlans();
@@ -109,24 +109,17 @@ export function HomePage() {
   const loadPlans = async () => {
     try {
       setLoading(true);
-      
-      // Always start with mock plans for immediate display
-      setPlans(mockPlans);
-      
-      // Try to load from Supabase if configured
+      setError(null);
+
       if (isSupabaseConfigured()) {
-        try {
-          const plansData = await getSubscriptionPlans();
-          if (plansData && plansData.length > 0) {
-            setPlans(plansData);
-          }
-        } catch (error) {
-          console.warn('Failed to load plans from Supabase, using mock data:', error);
-        }
+        const plansData = await getSubscriptionPlans();
+        setPlans(plansData);
+      } else {
+        setError('Sistema não configurado. Por favor, conecte ao Supabase.');
       }
     } catch (error) {
       console.error('Error loading plans:', error);
-      setPlans(mockPlans);
+      setError('Erro ao carregar planos. Tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -135,7 +128,55 @@ export function HomePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto mb-4"></div>
+          <p className="text-white">Carregando planos...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-purple-900 text-white">
+        <header className="bg-gray-900/50 backdrop-blur-xl border-b border-purple-500/20 sticky top-0 z-50">
+          <div className="max-w-6xl mx-auto px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl flex items-center justify-center shadow-lg">
+                  <Shield className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold">TerrraMail Pro</h1>
+                  <p className="text-purple-300 text-xs">Processamento Avançado</p>
+                </div>
+              </div>
+              <Link
+                to="/login"
+                className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-6 py-3 rounded-xl font-medium transition-all flex items-center gap-2 shadow-lg shadow-purple-500/25 hover:scale-105"
+              >
+                <LogIn className="w-4 h-4" />
+                Login
+              </Link>
+            </div>
+          </div>
+        </header>
+        
+        <div className="max-w-6xl mx-auto px-6 py-20">
+          <div className="text-center">
+            <div className="w-20 h-20 bg-red-500/20 rounded-3xl flex items-center justify-center mx-auto mb-8">
+              <AlertTriangle className="w-10 h-10 text-red-400" />
+            </div>
+            <h2 className="text-3xl font-bold text-white mb-4">Sistema Não Configurado</h2>
+            <p className="text-gray-300 text-lg mb-8">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-8 py-4 rounded-2xl font-bold transition-all shadow-lg shadow-purple-500/25 hover:scale-105"
+            >
+              Tentar Novamente
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -186,15 +227,25 @@ export function HomePage() {
             <p className="text-gray-300 text-lg">Escolha o plano ideal para suas necessidades</p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {plans.map((plan, index) => (
-              <PlanCard
-                key={plan.id}
-                plan={plan}
-                isPopular={index === 1}
-              />
-            ))}
-          </div>
+          {plans.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+              {plans.map((plan, index) => (
+                <PlanCard
+                  key={plan.id}
+                  plan={plan}
+                  isPopular={index === 1}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Package className="w-8 h-8 text-gray-500" />
+              </div>
+              <p className="text-gray-400 font-medium">Nenhum plano disponível</p>
+              <p className="text-gray-500 text-sm">Configure o Supabase para ver os planos</p>
+            </div>
+          )}
         </div>
 
         {/* CTA */}

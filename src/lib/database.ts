@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from './supabase';
+import bcrypt from 'bcryptjs';
 
 export interface User {
   id: string;
@@ -61,93 +62,52 @@ export interface UserPurchase {
   plan?: SubscriptionPlan;
 }
 
-// Dados hardcoded para funcionamento offline
-const HARDCODED_USERS: User[] = [
-  {
-    id: '550e8400-e29b-41d4-a716-446655440001',
-    email: 'admin@terramail.com',
-    password_hash: 'admin123',
-    role: 'admin',
-    subscription_days: 365,
-    allowed_ips: [],
-    is_banned: false,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  },
-  {
-    id: '550e8400-e29b-41d4-a716-446655440002',
-    email: 'user@terramail.com',
-    password_hash: 'user123',
-    role: 'user',
-    subscription_days: 30,
-    allowed_ips: [],
-    is_banned: false,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  }
-];
-
-let mockUsers = [...HARDCODED_USERS];
-let mockSessions: ProcessingSession[] = [];
-let mockPlans: SubscriptionPlan[] = [
-  {
-    id: '550e8400-e29b-41d4-a716-446655440010', 
-    name: 'Plano Básico',
-    days: 7,
-    price: 9.90,
-    description: 'Ideal para testes e uso básico',
-    is_active: true,
-    created_at: new Date().toISOString()
-  },
-  {
-    id: '550e8400-e29b-41d4-a716-446655440011',
-    name: 'Plano Standard',
-    days: 30,
-    price: 29.90,
-    description: 'Perfeito para uso regular',
-    is_active: true,
-    created_at: new Date().toISOString()
-  },
-  {
-    id: '550e8400-e29b-41d4-a716-446655440012',
-    name: 'Plano Premium',
-    days: 90,
-    price: 79.90,
-    description: 'Melhor custo-benefício',
-    is_active: true,
-    created_at: new Date().toISOString()
-  },
-  {
-    id: '550e8400-e29b-41d4-a716-446655440013',
-    name: 'Plano Ultimate',
-    days: 365,
-    price: 299.90,
-    description: 'Acesso completo por 1 ano',
-    is_active: true,
-    created_at: new Date().toISOString()
-  }
-];
-let mockPurchases: UserPurchase[] = [];
-
 // User operations
 export const getUserByEmail = async (email: string): Promise<User | null> => {
-  console.log('Buscando usuário por email:', email);
-  
-  // Sempre usar dados hardcoded
-  const user = mockUsers.find(u => u.email === email);
-  if (user) {
-    console.log('Usuário encontrado:', user.email);
-    return user;
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
   }
 
-  console.log('Usuário não encontrado');
-  return null;
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching user by email:', error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in getUserByEmail:', error);
+    throw error;
+  }
 };
 
 export const getUsers = async (): Promise<User[]> => {
-  // Sempre retornar dados mock para evitar RLS
-  console.log('Retornando usuários mock');
-  return mockUsers;
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching users:', error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in getUsers:', error);
+    throw error;
+  }
 };
 
 export const createUser = async (userData: {
@@ -157,102 +117,187 @@ export const createUser = async (userData: {
   subscription_days?: number;
   allowed_ips?: string[];
 }): Promise<User> => {
-  console.log('Criando usuário mock:', userData.email);
-  
-  const newUser: User = {
-    id: crypto.randomUUID(),
-    email: userData.email,
-    password_hash: userData.password,
-    role: userData.role || 'user',
-    subscription_days: userData.subscription_days || 0,
-    allowed_ips: userData.allowed_ips || [],
-    is_banned: false,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  };
-  
-  mockUsers.push(newUser);
-  return newUser;
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
+  }
+
+  try {
+    const hashedPassword = await bcrypt.hash(userData.password, 10);
+
+    const { data, error } = await supabase
+      .from('users')
+      .insert({
+        email: userData.email,
+        password_hash: hashedPassword,
+        role: userData.role || 'user',
+        subscription_days: userData.subscription_days || 0,
+        allowed_ips: userData.allowed_ips || []
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating user:', error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in createUser:', error);
+    throw error;
+  }
 };
 
 export const updateUser = async (userId: string, updates: Partial<User>): Promise<User> => {
-  console.log('Atualizando usuário mock:', userId);
-  
-  const userIndex = mockUsers.findIndex(u => u.id === userId);
-  if (userIndex !== -1) {
-    mockUsers[userIndex] = { ...mockUsers[userIndex], ...updates, updated_at: new Date().toISOString() };
-    return mockUsers[userIndex];
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
   }
-  
-  throw new Error('Usuário não encontrado');
+
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .update(updates)
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating user:', error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in updateUser:', error);
+    throw error;
+  }
 };
 
 export const deleteUser = async (userId: string): Promise<void> => {
-  console.log('Deletando usuário mock:', userId);
-  mockUsers = mockUsers.filter(u => u.id !== userId);
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
+  }
+
+  try {
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', userId);
+
+    if (error) {
+      console.error('Error deleting user:', error);
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error in deleteUser:', error);
+    throw error;
+  }
 };
 
 // Processing sessions
 export const getUserSession = async (userId: string): Promise<ProcessingSession | null> => {
-  console.log('Buscando sessão para usuário:', userId);
-  
-  const session = mockSessions.find(s => s.user_id === userId);
-  return session || null;
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('processing_sessions')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching user session:', error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in getUserSession:', error);
+    throw error;
+  }
 };
 
 export const createSession = async (userId: string): Promise<ProcessingSession> => {
-  console.log('Criando sessão mock para usuário:', userId);
-  
-  const newSession: ProcessingSession = {
-    id: crypto.randomUUID(),
-    user_id: userId,
-    approved_count: 0,
-    rejected_count: 0,
-    loaded_count: 0,
-    tested_count: 0,
-    is_active: false,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  };
-  
-  mockSessions.push(newSession);
-  return newSession;
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('processing_sessions')
+      .insert({
+        user_id: userId,
+        approved_count: 0,
+        rejected_count: 0,
+        loaded_count: 0,
+        tested_count: 0,
+        is_active: false
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating session:', error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in createSession:', error);
+    throw error;
+  }
 };
 
 export const updateSession = async (sessionId: string, updates: Partial<ProcessingSession>): Promise<ProcessingSession> => {
-  console.log('Atualizando sessão mock:', sessionId);
-  
-  const sessionIndex = mockSessions.findIndex(s => s.id === sessionId);
-  if (sessionIndex !== -1) {
-    mockSessions[sessionIndex] = { 
-      ...mockSessions[sessionIndex], 
-      ...updates, 
-      updated_at: new Date().toISOString() 
-    };
-    return mockSessions[sessionIndex];
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
   }
-  
-  // Se não encontrar, criar nova sessão
-  const newSession: ProcessingSession = {
-    id: sessionId,
-    user_id: updates.user_id || '',
-    approved_count: updates.approved_count || 0,
-    rejected_count: updates.rejected_count || 0,
-    loaded_count: updates.loaded_count || 0,
-    tested_count: updates.tested_count || 0,
-    is_active: updates.is_active || false,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  };
-  
-  mockSessions.push(newSession);
-  return newSession;
+
+  try {
+    const { data, error } = await supabase
+      .from('processing_sessions')
+      .update(updates)
+      .eq('id', sessionId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating session:', error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in updateSession:', error);
+    throw error;
+  }
 };
 
 // Subscription plans
 export const getSubscriptionPlans = async (): Promise<SubscriptionPlan[]> => {
-  console.log('Retornando planos mock');
-  return mockPlans;
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('subscription_plans')
+      .select('*')
+      .eq('is_active', true)
+      .order('price', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching subscription plans:', error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in getSubscriptionPlans:', error);
+    throw error;
+  }
 };
 
 export const createSubscriptionPlan = async (plan: {
@@ -261,36 +306,86 @@ export const createSubscriptionPlan = async (plan: {
   price: number;
   description?: string;
 }): Promise<SubscriptionPlan> => {
-  console.log('Criando plano mock:', plan.name);
-  
-  const newPlan: SubscriptionPlan = {
-    id: crypto.randomUUID(),
-    ...plan,
-    description: plan.description || '',
-    is_active: true,
-    created_at: new Date().toISOString()
-  };
-  
-  mockPlans.push(newPlan);
-  return newPlan;
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('subscription_plans')
+      .insert({
+        name: plan.name,
+        days: plan.days,
+        price: plan.price,
+        description: plan.description || '',
+        is_active: true
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating subscription plan:', error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in createSubscriptionPlan:', error);
+    throw error;
+  }
 };
 
 export const updateSubscriptionPlan = async (planId: string, updates: Partial<SubscriptionPlan>): Promise<SubscriptionPlan> => {
-  console.log('Atualizando plano mock:', planId);
-  
-  const planIndex = mockPlans.findIndex(p => p.id === planId);
-  if (planIndex !== -1) {
-    mockPlans[planIndex] = { ...mockPlans[planIndex], ...updates };
-    return mockPlans[planIndex];
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
   }
-  
-  throw new Error('Plano não encontrado');
+
+  try {
+    const { data, error } = await supabase
+      .from('subscription_plans')
+      .update(updates)
+      .eq('id', planId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating subscription plan:', error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in updateSubscriptionPlan:', error);
+    throw error;
+  }
 };
 
 // User purchases
 export const getUserPurchases = async (userId: string): Promise<UserPurchase[]> => {
-  console.log('Retornando compras mock para usuário:', userId);
-  return mockPurchases.filter(p => p.user_id === userId);
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('user_purchases')
+      .select(`
+        *,
+        plan:subscription_plans(*)
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching user purchases:', error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in getUserPurchases:', error);
+    throw error;
+  }
 };
 
 export const createPurchase = async (purchase: {
@@ -300,33 +395,147 @@ export const createPurchase = async (purchase: {
   amount_paid: number;
   payment_method?: string;
 }): Promise<UserPurchase> => {
-  console.log('Criando compra mock');
-  
-  const newPurchase: UserPurchase = {
-    id: crypto.randomUUID(),
-    ...purchase,
-    payment_method: purchase.payment_method || 'manual',
-    created_at: new Date().toISOString()
-  };
-  
-  mockPurchases.push(newPurchase);
-  return newPurchase;
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('user_purchases')
+      .insert({
+        user_id: purchase.user_id,
+        plan_id: purchase.plan_id,
+        days_added: purchase.days_added,
+        amount_paid: purchase.amount_paid,
+        payment_method: purchase.payment_method || 'manual'
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating purchase:', error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in createPurchase:', error);
+    throw error;
+  }
 };
 
 // Analytics
 export const getSystemStats = async () => {
-  console.log('Retornando estatísticas mock');
-  
-  return {
-    totalUsers: mockUsers.length,
-    activeUsers: mockUsers.filter(u => !u.is_banned && u.subscription_days > 0).length,
-    bannedUsers: mockUsers.filter(u => u.is_banned).length,
-    adminUsers: mockUsers.filter(u => u.role === 'admin').length,
-    totalProcessed: mockSessions.reduce((sum, s) => sum + s.tested_count, 0),
-    totalApproved: mockSessions.reduce((sum, s) => sum + s.approved_count, 0),
-    totalRevenue: mockPurchases.reduce((sum, p) => sum + Number(p.amount_paid), 0),
-    monthlyRevenue: mockPurchases
-      .filter(p => new Date(p.created_at) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
-      .reduce((sum, p) => sum + Number(p.amount_paid), 0)
-  };
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
+  }
+
+  try {
+    // Get user stats
+    const { data: users, error: usersError } = await supabase
+      .from('users')
+      .select('role, is_banned, subscription_days');
+
+    if (usersError) throw usersError;
+
+    // Get processing stats
+    const { data: sessions, error: sessionsError } = await supabase
+      .from('processing_sessions')
+      .select('approved_count, rejected_count, tested_count');
+
+    if (sessionsError) throw sessionsError;
+
+    // Get purchase stats
+    const { data: purchases, error: purchasesError } = await supabase
+      .from('user_purchases')
+      .select('amount_paid, created_at');
+
+    if (purchasesError) throw purchasesError;
+
+    const totalUsers = users?.length || 0;
+    const activeUsers = users?.filter(u => !u.is_banned && u.subscription_days > 0).length || 0;
+    const bannedUsers = users?.filter(u => u.is_banned).length || 0;
+    const adminUsers = users?.filter(u => u.role === 'admin').length || 0;
+
+    const totalProcessed = sessions?.reduce((sum, s) => sum + s.tested_count, 0) || 0;
+    const totalApproved = sessions?.reduce((sum, s) => sum + s.approved_count, 0) || 0;
+
+    const totalRevenue = purchases?.reduce((sum, p) => sum + Number(p.amount_paid), 0) || 0;
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const monthlyRevenue = purchases?.filter(p => new Date(p.created_at) > thirtyDaysAgo)
+      .reduce((sum, p) => sum + Number(p.amount_paid), 0) || 0;
+
+    return {
+      totalUsers,
+      activeUsers,
+      bannedUsers,
+      adminUsers,
+      totalProcessed,
+      totalApproved,
+      totalRevenue,
+      monthlyRevenue
+    };
+  } catch (error) {
+    console.error('Error in getSystemStats:', error);
+    throw error;
+  }
+};
+
+// Login attempt logging
+export const logLoginAttempt = async (ipAddress: string, userEmail: string | null, success: boolean): Promise<void> => {
+  if (!isSupabaseConfigured()) {
+    console.warn('Supabase not configured, skipping login attempt logging');
+    return;
+  }
+
+  try {
+    const { error } = await supabase
+      .from('login_attempts')
+      .insert({
+        ip_address: ipAddress,
+        user_email: userEmail,
+        success
+      });
+
+    if (error) {
+      console.error('Error logging login attempt:', error);
+    }
+  } catch (error) {
+    console.error('Error in logLoginAttempt:', error);
+  }
+};
+
+// Check if IP is banned
+export const isIPBanned = async (ipAddress: string): Promise<boolean> => {
+  if (!isSupabaseConfigured()) {
+    return false;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('banned_ips')
+      .select('banned_until')
+      .eq('ip_address', ipAddress)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error checking banned IP:', error);
+      return false;
+    }
+
+    if (!data) return false;
+
+    // Check if ban is still active
+    if (data.banned_until) {
+      const banExpiry = new Date(data.banned_until);
+      const now = new Date();
+      return now < banExpiry;
+    }
+
+    // Permanent ban if banned_until is null
+    return true;
+  } catch (error) {
+    console.error('Error in isIPBanned:', error);
+    return false;
+  }
 };

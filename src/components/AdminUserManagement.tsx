@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { isSupabaseConfigured } from '../lib/supabase';
 import { 
   User, 
   SubscriptionPlan, 
@@ -32,7 +33,8 @@ import {
   AlertTriangle,
   BarChart3,
   Activity,
-  Clock
+  Clock,
+  AlertTriangle as AlertTriangleIcon
 } from 'lucide-react';
 
 interface CreateUserForm {
@@ -60,6 +62,7 @@ export function AdminUserManagement() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userPurchases, setUserPurchases] = useState<UserPurchase[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [createUserForm, setCreateUserForm] = useState<CreateUserForm>({
     email: '',
@@ -77,12 +80,23 @@ export function AdminUserManagement() {
   });
 
   useEffect(() => {
-    loadData();
+    if (isSupabaseConfigured()) {
+      loadData();
+    } else {
+      setError('Supabase não configurado. Por favor, conecte ao Supabase para usar o painel administrativo.');
+      setLoading(false);
+    }
   }, []);
 
   const loadData = async () => {
+    if (!isSupabaseConfigured()) {
+      setError('Supabase não configurado');
+      return;
+    }
+
     try {
       setLoading(true);
+      setError(null);
       const [usersData, plansData, statsData] = await Promise.all([
         getUsers(),
         getSubscriptionPlans(),
@@ -93,6 +107,7 @@ export function AdminUserManagement() {
       setStats(statsData);
     } catch (error) {
       console.error('Error loading data:', error);
+      setError('Erro ao carregar dados do Supabase. Verifique a configuração.');
     } finally {
       setLoading(false);
     }
@@ -100,6 +115,12 @@ export function AdminUserManagement() {
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!isSupabaseConfigured()) {
+      alert('Supabase não configurado');
+      return;
+    }
+
     try {
       const allowedIPs = createUserForm.allowed_ips
         .split(',')
@@ -123,16 +144,21 @@ export function AdminUserManagement() {
       });
       setShowCreateUser(false);
       await loadData();
+      alert('Usuário criado com sucesso!');
     } catch (error) {
       console.error('Error creating user:', error);
-      alert('Usuário criado com sucesso (modo offline)');
-      setShowCreateUser(false);
-      await loadData();
+      alert('Erro ao criar usuário: ' + (error as Error).message);
     }
   };
 
   const handleCreatePlan = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!isSupabaseConfigured()) {
+      alert('Supabase não configurado');
+      return;
+    }
+
     try {
       await createSubscriptionPlan(createPlanForm);
       setCreatePlanForm({
@@ -143,13 +169,19 @@ export function AdminUserManagement() {
       });
       setShowCreatePlan(false);
       loadData();
+      alert('Plano criado com sucesso!');
     } catch (error) {
       console.error('Error creating plan:', error);
-      alert('Erro ao criar plano');
+      alert('Erro ao criar plano: ' + (error as Error).message);
     }
   };
 
   const handleSellPlan = async (userId: string, planId: string) => {
+    if (!isSupabaseConfigured()) {
+      alert('Supabase não configurado');
+      return;
+    }
+
     try {
       const plan = plans.find(p => p.id === planId);
       if (!plan) return;
@@ -180,6 +212,10 @@ export function AdminUserManagement() {
   };
 
   const loadUserPurchases = async (userId: string) => {
+    if (!isSupabaseConfigured()) {
+      return;
+    }
+
     try {
       const purchases = await getUserPurchases(userId);
       setUserPurchases(purchases);
@@ -195,10 +231,48 @@ export function AdminUserManagement() {
     { key: 'sales', label: 'Vendas', icon: DollarSign }
   ];
 
+  if (!isSupabaseConfigured()) {
+    return (
+      <div className="text-center py-12">
+        <div className="w-20 h-20 bg-red-500/20 rounded-3xl flex items-center justify-center mx-auto mb-8">
+          <AlertTriangle className="w-10 h-10 text-red-400" />
+        </div>
+        <h3 className="text-2xl font-bold text-white mb-4">Supabase Não Configurado</h3>
+        <p className="text-gray-300 mb-8">
+          Para usar o painel administrativo, você precisa conectar ao Supabase primeiro.
+        </p>
+        <p className="text-gray-400 text-sm">
+          Clique no botão "Connect to Supabase" no canto superior direito da tela.
+        </p>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400 mx-auto mb-4"></div>
+          <p className="text-white">Carregando dados do Supabase...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <div className="w-20 h-20 bg-red-500/20 rounded-3xl flex items-center justify-center mx-auto mb-8">
+          <AlertTriangle className="w-10 h-10 text-red-400" />
+        </div>
+        <h3 className="text-2xl font-bold text-white mb-4">Erro de Configuração</h3>
+        <p className="text-gray-300 mb-8">{error}</p>
+        <button
+          onClick={loadData}
+          className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-8 py-4 rounded-2xl font-bold transition-all shadow-lg shadow-purple-500/25 hover:scale-105"
+        >
+          Tentar Novamente
+        </button>
       </div>
     );
   }
@@ -443,6 +517,7 @@ export function AdminUserManagement() {
                         ) : (
                           <button
                             onClick={async () => {
+                              if (!isSupabaseConfigured()) return;
                               await updateUser(user.id, { is_banned: true });
                               loadData();
                             }}
@@ -454,6 +529,8 @@ export function AdminUserManagement() {
                         )}
                         <button
                           onClick={async () => {
+                            if (!isSupabaseConfigured()) return;
+                            if (!isSupabaseConfigured()) return;
                             if (confirm('Tem certeza que deseja deletar este usuário?')) {
                               await deleteUser(user.id);
                               loadData();
@@ -526,6 +603,7 @@ export function AdminUserManagement() {
                 <div className="flex gap-3">
                   <button
                     onClick={async () => {
+                      if (!isSupabaseConfigured()) return;
                       await updateSubscriptionPlan(plan.id, { is_active: !plan.is_active });
                       loadData();
                     }}
@@ -539,6 +617,7 @@ export function AdminUserManagement() {
                   </button>
                   <button
                     onClick={async () => {
+                      if (!isSupabaseConfigured()) return;
                       const newPrice = prompt('Novo preço:', plan.price.toString());
                       if (newPrice && !isNaN(parseFloat(newPrice))) {
                         await updateSubscriptionPlan(plan.id, { price: parseFloat(newPrice) });
