@@ -157,7 +157,7 @@ export const createUser = async (userData: {
   }
 };
 
-export const updateUser = async (userId: string, updates: Partial<User>): Promise<User> => {
+export const updateUser = async (userId: string, updates: Partial<User>): Promise<User | null> => {
   if (!isSupabaseConfigured()) {
     throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
   }
@@ -168,14 +168,14 @@ export const updateUser = async (userId: string, updates: Partial<User>): Promis
       .update(updates)
       .eq('id', userId)
       .select()
-      .maybeSingle();
+      .limit(1);
 
     if (error) {
       console.error('Error updating user:', error);
       throw error;
     }
 
-    return data;
+    return data[0] || null;
   } catch (error) {
     console.error('Error in updateUser:', error);
     throw error;
