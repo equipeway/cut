@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useIPAddress } from '../hooks/useIPAddress';
-import { Lock, Mail, AlertCircle, Shield } from 'lucide-react';
+import { Lock, Mail, AlertCircle, Shield, ArrowLeft } from 'lucide-react';
 
 export function Login() {
   const [email, setEmail] = useState('');
@@ -30,6 +31,17 @@ export function Login() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-purple-900 flex items-center justify-center p-6">
       <div className="w-full max-w-md">
+        {/* Back to Plans */}
+        <div className="mb-6">
+          <Link 
+            to="/plans"
+            className="inline-flex items-center gap-2 text-purple-300 hover:text-white transition-colors text-sm"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Voltar aos Planos
+          </Link>
+        </div>
+
         <div className="bg-gray-900/80 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-8 shadow-2xl">
           {/* Logo */}
           <div className="text-center mb-8">

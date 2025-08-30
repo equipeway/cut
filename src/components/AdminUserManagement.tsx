@@ -379,18 +379,23 @@ export function AdminUserManagement() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {plans.map(plan => (
               <div key={plan.id} className="bg-gray-800/50 rounded-xl p-6 border border-purple-500/20">
-                <div className="flex justify-between items-start mb-4">
+                <div className="flex justify-between items-center mb-4">
                   <h4 className="text-white font-bold text-lg">{plan.name}</h4>
-                  <span className="text-2xl font-bold text-purple-400">
-                    R$ {plan.price.toFixed(2)}
-                  </span>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-purple-400">
+                      R$ {plan.price.toFixed(2)}
+                    </div>
+                    <div className="text-xs text-gray-400">{plan.days} dias</div>
+                  </div>
                 </div>
                 <div className="space-y-2 mb-4">
-                  <p className="text-gray-300 text-sm flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-purple-400" />
-                    {plan.days} dias de acesso
-                  </p>
                   <p className="text-gray-400 text-sm">{plan.description}</p>
+                </div>
+                <div className="mb-4 p-3 bg-gray-700/30 rounded-lg">
+                  <div className="text-xs text-gray-400 mb-1">Preço por dia:</div>
+                  <div className="text-sm font-bold text-emerald-400">
+                    R$ {(plan.price / plan.days).toFixed(2)}
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -405,6 +410,18 @@ export function AdminUserManagement() {
                     }`}
                   >
                     {plan.is_active ? 'Desativar' : 'Ativar'}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const newPrice = prompt('Novo preço:', plan.price.toString());
+                      if (newPrice && !isNaN(parseFloat(newPrice))) {
+                        await updateSubscriptionPlan(plan.id, { price: parseFloat(newPrice) });
+                        loadData();
+                      }
+                    }}
+                    className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-all"
+                  >
+                    Editar
                   </button>
                 </div>
               </div>
@@ -467,7 +484,10 @@ export function AdminUserManagement() {
                           <h5 className="text-white font-medium">{plan.name}</h5>
                           <span className="text-purple-400 font-bold">R$ {plan.price.toFixed(2)}</span>
                         </div>
-                        <p className="text-gray-400 text-sm mb-3">{plan.description}</p>
+                        <div className="text-gray-400 text-sm mb-3">
+                          <p>{plan.description}</p>
+                          <p className="text-xs mt-1">R$ {(plan.price / plan.days).toFixed(2)} por dia</p>
+                        </div>
                         <button
                           onClick={() => handleSellPlan(selectedUser.id, plan.id)}
                           className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 rounded-lg text-sm font-medium transition-all"

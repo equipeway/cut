@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   ProcessingSession,
@@ -19,7 +20,9 @@ import {
   Database,
   TrendingUp,
   AlertTriangle,
-  Shield
+  Shield,
+  Package,
+  ExternalLink
 } from 'lucide-react';
 
 interface ProcessingResult {
@@ -305,6 +308,14 @@ export function Dashboard() {
               <h1 className="text-xl font-bold text-white">TerrraMail</h1>
             </div>
             <div className="flex items-center gap-4">
+              <Link
+                to="/plans"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 shadow-lg"
+              >
+                <Package className="w-4 h-4" />
+                Ver Planos
+                <ExternalLink className="w-3 h-3" />
+              </Link>
               <div className="text-right">
                 <p className="text-white text-sm font-medium">{user?.email}</p>
                 <p className="text-purple-300 text-xs">{user?.role}</p>
