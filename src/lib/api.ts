@@ -1,21 +1,21 @@
-// Direct database operations - no API calls needed
+// Direct database operations using better-sqlite3
 import {
-  getUserByEmail,
-  getUserById,
-  getUsers,
-  createUser,
-  updateUser,
-  deleteUser,
-  getUserSession,
-  createSession,
-  updateSession,
-  getSubscriptionPlans,
-  getAllSubscriptionPlans,
-  createSubscriptionPlan,
-  updateSubscriptionPlan,
-  deleteSubscriptionPlan,
-  createPurchase,
-  getSystemStats,
+  getUserByEmailDB,
+  getUserByIdDB,
+  getUsersDB,
+  createUserDB,
+  updateUserDB,
+  deleteUserDB,
+  getUserSessionDB,
+  createSessionDB,
+  updateSessionDB,
+  getSubscriptionPlansDB,
+  getAllSubscriptionPlansDB,
+  createSubscriptionPlanDB,
+  updateSubscriptionPlanDB,
+  deleteSubscriptionPlanDB,
+  createPurchaseDB,
+  getSystemStatsDB,
   User,
   ProcessingSession,
   SubscriptionPlan,
@@ -27,13 +27,13 @@ export type { User, ProcessingSession, SubscriptionPlan, UserPurchase };
 
 // Auth operations
 export const loginUser = async (email: string, password: string): Promise<{ user: User }> => {
-  const user = getUserByEmail(email);
+  const user = getUserByEmailDB(email);
   
   if (!user) {
     throw new Error('Email não encontrado');
   }
 
-  if (user.password !== password) {
+  if (user.password_hash !== password) {
     throw new Error('Senha incorreta');
   }
 
@@ -42,35 +42,86 @@ export const loginUser = async (email: string, password: string): Promise<{ user
   }
 
   // Return user without password
-  const { password: _, ...userWithoutPassword } = user;
+  const { password_hash: _, ...userWithoutPassword } = user;
   return { user: userWithoutPassword as User };
 };
 
 // User operations
-export { getUsers, createUser, updateUser, deleteUser };
+export const getUsers = (): User[] => {
+  return getUsersDB();
+};
+
+export const createUser = (userData: {
+  email: string;
+  password: string;
+  role?: 'user' | 'admin';
+  subscription_days?: number;
+}): User => {
+  return createUserDB(userData);
+};
+
+export const updateUser = (userId: string, updates: Partial<User>): User | null => {
+  return updateUserDB(userId, updates);
+};
+
+export const deleteUser = (userId: string): void => {
+  return deleteUserDB(userId);
+};
 
 // Session operations
 export const getUserSessionAPI = async (userId: string): Promise<ProcessingSession> => {
-  let session = getUserSession(userId);
+  let session = getUserSessionDB(userId);
   if (!session) {
-    session = createSession(userId);
+    session = createSessionDB(userId);
   }
   return session;
 };
 
-export { updateSession };
+export const updateSession = (sessionId: string, updates: Partial<ProcessingSession>): ProcessingSession | null => {
+  return updateSessionDB(sessionId, updates);
+};
 
 // Plan operations
-export { 
-  getSubscriptionPlans, 
-  getAllSubscriptionPlans, 
-  createSubscriptionPlan, 
-  updateSubscriptionPlan, 
-  deleteSubscriptionPlan 
+export const getSubscriptionPlans = (): SubscriptionPlan[] => {
+  return getSubscriptionPlansDB();
+};
+
+export const getAllSubscriptionPlans = (): SubscriptionPlan[] => {
+  return getAllSubscriptionPlansDB();
+};
+
+export const createSubscriptionPlan = (planData: {
+  name: string;
+  days: number;
+  price: number;
+  description?: string;
+}): SubscriptionPlan => {
+  return createSubscriptionPlanDB(planData);
+};
+
+export const updateSubscriptionPlan = (planId: string, updates: Partial<SubscriptionPlan>): SubscriptionPlan | null => {
+  return updateSubscriptionPlanDB(planId, updates);
+};
+
+export const deleteSubscriptionPlan = (planId: string): void => {
+  return deleteSubscriptionPlanDB(planId);
+};
+
+// Purchase operations
+export const createPurchase = (purchaseData: {
+  user_id: string;
+  plan_id: string;
+  days_added: number;
+  amount_paid: number;
+  payment_method?: string;
+}): UserPurchase => {
+  return createPurchaseDB(purchaseData);
 };
 
 // Stats
-export { getSystemStats };
+export const getSystemStats = () => {
+  return getSystemStatsDB();
+};
 
 // Health check
 export const checkHealth = async (): Promise<boolean> => {

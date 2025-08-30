@@ -4,13 +4,13 @@ import react from '@vitejs/plugin-react';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  build: {
-    target: 'es2022'
+  define: {
+    global: 'globalThis',
   },
   optimizeDeps: {
-    exclude: ['lucide-react'],
-    esbuildOptions: {
-      target: 'es2022'
-    }
+    exclude: ['better-sqlite3']
+  },
+  build: {
+    target: 'es2022'
   },
 });

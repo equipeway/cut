@@ -4,11 +4,11 @@ import Database from 'better-sqlite3';
 export interface User {
   id: string;
   email: string;
-  password: string;
+  password_hash: string;
   role: 'user' | 'admin';
   subscription_days: number;
   allowed_ips: string;
-  is_banned: number;
+  is_banned: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -20,7 +20,7 @@ export interface ProcessingSession {
   rejected_count: number;
   loaded_count: number;
   tested_count: number;
-  is_active: number;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -31,7 +31,7 @@ export interface SubscriptionPlan {
   days: number;
   price: number;
   description: string;
-  is_active: number;
+  is_active: boolean;
   created_at: string;
 }
 
@@ -49,10 +49,12 @@ export interface UserPurchase {
 let db: Database.Database;
 
 try {
-  db = new Database('terramail.db');
+  // Create database file in the project root
+  db = new Database('./terramail.db');
   db.pragma('journal_mode = WAL');
+  console.log('✅ SQLite database connected successfully');
 } catch (error) {
-  console.error('Failed to initialize database:', error);
+  console.error('❌ Failed to initialize database:', error);
   throw error;
 }
 
@@ -67,169 +69,183 @@ const generateId = (): string => {
 
 // Create tables
 const createTables = () => {
-  // Users table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      email TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL,
-      role TEXT DEFAULT 'user',
-      subscription_days INTEGER DEFAULT 0,
-      allowed_ips TEXT DEFAULT '[]',
-      is_banned INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
+  try {
+    // Users table
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        role TEXT DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+        subscription_days INTEGER DEFAULT 0,
+        allowed_ips TEXT DEFAULT '[]',
+        is_banned BOOLEAN DEFAULT FALSE,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
-  // Processing sessions table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS processing_sessions (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
-      approved_count INTEGER DEFAULT 0,
-      rejected_count INTEGER DEFAULT 0,
-      loaded_count INTEGER DEFAULT 0,
-      tested_count INTEGER DEFAULT 0,
-      is_active INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
-  `);
+    // Processing sessions table
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS processing_sessions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        approved_count INTEGER DEFAULT 0,
+        rejected_count INTEGER DEFAULT 0,
+        loaded_count INTEGER DEFAULT 0,
+        tested_count INTEGER DEFAULT 0,
+        is_active BOOLEAN DEFAULT FALSE,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
 
-  // Subscription plans table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS subscription_plans (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      days INTEGER NOT NULL,
-      price REAL NOT NULL,
-      description TEXT DEFAULT '',
-      is_active INTEGER DEFAULT 1,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
+    // Subscription plans table
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS subscription_plans (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        days INTEGER NOT NULL,
+        price REAL NOT NULL,
+        description TEXT DEFAULT '',
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
-  // User purchases table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS user_purchases (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
-      plan_id TEXT NOT NULL,
-      days_added INTEGER NOT NULL,
-      amount_paid REAL NOT NULL,
-      payment_method TEXT DEFAULT 'manual',
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-      FOREIGN KEY (plan_id) REFERENCES subscription_plans(id) ON DELETE CASCADE
-    )
-  `);
+    // User purchases table
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS user_purchases (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        plan_id TEXT NOT NULL,
+        days_added INTEGER NOT NULL,
+        amount_paid REAL NOT NULL,
+        payment_method TEXT DEFAULT 'manual',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (plan_id) REFERENCES subscription_plans(id) ON DELETE CASCADE
+      )
+    `);
 
-  // Login attempts table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS login_attempts (
-      id TEXT PRIMARY KEY,
-      ip_address TEXT NOT NULL,
-      user_email TEXT,
-      success INTEGER NOT NULL,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
+    // Login attempts table
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS login_attempts (
+        id TEXT PRIMARY KEY,
+        ip_address TEXT NOT NULL,
+        user_email TEXT,
+        success BOOLEAN NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
-  // Create indexes
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-    CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
-    CREATE INDEX IF NOT EXISTS idx_processing_sessions_user_id ON processing_sessions(user_id);
-    CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON login_attempts(ip_address);
-    CREATE INDEX IF NOT EXISTS idx_login_attempts_created_at ON login_attempts(created_at);
-    CREATE INDEX IF NOT EXISTS idx_user_purchases_user_id ON user_purchases(user_id);
-    CREATE INDEX IF NOT EXISTS idx_user_purchases_created_at ON user_purchases(created_at);
-  `);
+    // Create indexes for better performance
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+      CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+      CREATE INDEX IF NOT EXISTS idx_processing_sessions_user_id ON processing_sessions(user_id);
+      CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON login_attempts(ip_address);
+      CREATE INDEX IF NOT EXISTS idx_login_attempts_created_at ON login_attempts(created_at);
+      CREATE INDEX IF NOT EXISTS idx_user_purchases_user_id ON user_purchases(user_id);
+      CREATE INDEX IF NOT EXISTS idx_user_purchases_created_at ON user_purchases(created_at);
+    `);
+
+    console.log('✅ Database tables created successfully');
+  } catch (error) {
+    console.error('❌ Error creating tables:', error);
+    throw error;
+  }
 };
 
 // Initialize default data
 const initializeDefaultData = () => {
-  // Check if admin user exists
-  const adminExists = db.prepare('SELECT COUNT(*) as count FROM users WHERE role = ?').get('admin') as { count: number };
-  
-  if (adminExists.count === 0) {
-    // Create admin user
-    const adminId = generateId();
-    db.prepare(`
-      INSERT INTO users (id, email, password, role, subscription_days, allowed_ips, is_banned, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      adminId,
-      'admin@terramail.com',
-      'admin123',
-      'admin',
-      9999,
-      '[]',
-      0,
-      new Date().toISOString(),
-      new Date().toISOString()
-    );
-  }
-
-  // Check if plans exist
-  const plansCount = db.prepare('SELECT COUNT(*) as count FROM subscription_plans').get() as { count: number };
-  
-  if (plansCount.count === 0) {
-    // Create default plans
-    const plans = [
-      {
-        id: generateId(),
-        name: 'Plano Básico',
-        days: 30,
-        price: 29.90,
-        description: 'Ideal para iniciantes com recursos essenciais',
-        is_active: 1,
-        created_at: new Date().toISOString()
-      },
-      {
-        id: generateId(),
-        name: 'Plano Standard',
-        days: 90,
-        price: 79.90,
-        description: 'Perfeito para uso regular com recursos avançados',
-        is_active: 1,
-        created_at: new Date().toISOString()
-      },
-      {
-        id: generateId(),
-        name: 'Plano Premium',
-        days: 180,
-        price: 149.90,
-        description: 'Para usuários intensivos com máxima performance',
-        is_active: 1,
-        created_at: new Date().toISOString()
-      },
-      {
-        id: generateId(),
-        name: 'Plano Ultimate',
-        days: 365,
-        price: 299.90,
-        description: 'Acesso completo por um ano inteiro',
-        is_active: 1,
-        created_at: new Date().toISOString()
-      }
-    ];
-
-    const insertPlan = db.prepare(`
-      INSERT INTO subscription_plans (id, name, days, price, description, is_active, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    for (const plan of plans) {
-      insertPlan.run(plan.id, plan.name, plan.days, plan.price, plan.description, plan.is_active, plan.created_at);
+  try {
+    // Check if admin user exists
+    const adminExists = db.prepare('SELECT COUNT(*) as count FROM users WHERE role = ?').get('admin') as { count: number };
+    
+    if (adminExists.count === 0) {
+      // Create admin user
+      const adminId = generateId();
+      db.prepare(`
+        INSERT INTO users (id, email, password_hash, role, subscription_days, allowed_ips, is_banned, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        adminId,
+        'admin@terramail.com',
+        'admin123', // In production, this should be hashed
+        'admin',
+        9999,
+        '[]',
+        false,
+        new Date().toISOString(),
+        new Date().toISOString()
+      );
+      console.log('✅ Admin user created');
     }
+
+    // Check if plans exist
+    const plansCount = db.prepare('SELECT COUNT(*) as count FROM subscription_plans').get() as { count: number };
+    
+    if (plansCount.count === 0) {
+      // Create default plans
+      const plans = [
+        {
+          id: generateId(),
+          name: 'Plano Básico',
+          days: 30,
+          price: 29.90,
+          description: 'Ideal para iniciantes com recursos essenciais',
+          is_active: true,
+          created_at: new Date().toISOString()
+        },
+        {
+          id: generateId(),
+          name: 'Plano Standard',
+          days: 90,
+          price: 79.90,
+          description: 'Perfeito para uso regular com recursos avançados',
+          is_active: true,
+          created_at: new Date().toISOString()
+        },
+        {
+          id: generateId(),
+          name: 'Plano Premium',
+          days: 180,
+          price: 149.90,
+          description: 'Para usuários intensivos com máxima performance',
+          is_active: true,
+          created_at: new Date().toISOString()
+        },
+        {
+          id: generateId(),
+          name: 'Plano Ultimate',
+          days: 365,
+          price: 299.90,
+          description: 'Acesso completo por um ano inteiro',
+          is_active: true,
+          created_at: new Date().toISOString()
+        }
+      ];
+
+      const insertPlan = db.prepare(`
+        INSERT INTO subscription_plans (id, name, days, price, description, is_active, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      for (const plan of plans) {
+        insertPlan.run(plan.id, plan.name, plan.days, plan.price, plan.description, plan.is_active, plan.created_at);
+      }
+      console.log('✅ Default plans created');
+    }
+  } catch (error) {
+    console.error('❌ Error initializing default data:', error);
+    throw error;
   }
 };
 
 // User operations
-export const getUserByEmail = (email: string): User | null => {
+export const getUserByEmailDB = (email: string): User | null => {
   try {
     const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as User | undefined;
     return user || null;
@@ -239,7 +255,7 @@ export const getUserByEmail = (email: string): User | null => {
   }
 };
 
-export const getUserById = (id: string): User | null => {
+export const getUserByIdDB = (id: string): User | null => {
   try {
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as User | undefined;
     return user || null;
@@ -249,7 +265,7 @@ export const getUserById = (id: string): User | null => {
   }
 };
 
-export const getUsers = (): User[] => {
+export const getUsersDB = (): User[] => {
   try {
     return db.prepare('SELECT * FROM users ORDER BY created_at DESC').all() as User[];
   } catch (error) {
@@ -258,37 +274,37 @@ export const getUsers = (): User[] => {
   }
 };
 
-export const createUser = (userData: {
+export const createUserDB = (userData: {
   email: string;
   password: string;
   role?: 'user' | 'admin';
   subscription_days?: number;
 }): User => {
   // Check if user already exists
-  if (getUserByEmail(userData.email)) {
+  if (getUserByEmailDB(userData.email)) {
     throw new Error('Email já está em uso');
   }
 
   const newUser = {
     id: generateId(),
     email: userData.email,
-    password: userData.password,
+    password_hash: userData.password, // In production, hash this
     role: userData.role || 'user',
     subscription_days: userData.subscription_days || 0,
     allowed_ips: '[]',
-    is_banned: 0,
+    is_banned: false,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
 
   try {
     db.prepare(`
-      INSERT INTO users (id, email, password, role, subscription_days, allowed_ips, is_banned, created_at, updated_at)
+      INSERT INTO users (id, email, password_hash, role, subscription_days, allowed_ips, is_banned, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       newUser.id,
       newUser.email,
-      newUser.password,
+      newUser.password_hash,
       newUser.role,
       newUser.subscription_days,
       newUser.allowed_ips,
@@ -304,9 +320,9 @@ export const createUser = (userData: {
   }
 };
 
-export const updateUser = (userId: string, updates: Partial<User>): User | null => {
+export const updateUserDB = (userId: string, updates: Partial<User>): User | null => {
   try {
-    const user = getUserById(userId);
+    const user = getUserByIdDB(userId);
     if (!user) return null;
 
     const updatedUser = {
@@ -317,11 +333,11 @@ export const updateUser = (userId: string, updates: Partial<User>): User | null 
 
     db.prepare(`
       UPDATE users 
-      SET email = ?, password = ?, role = ?, subscription_days = ?, allowed_ips = ?, is_banned = ?, updated_at = ?
+      SET email = ?, password_hash = ?, role = ?, subscription_days = ?, allowed_ips = ?, is_banned = ?, updated_at = ?
       WHERE id = ?
     `).run(
       updatedUser.email,
-      updatedUser.password,
+      updatedUser.password_hash,
       updatedUser.role,
       updatedUser.subscription_days,
       updatedUser.allowed_ips,
@@ -337,7 +353,7 @@ export const updateUser = (userId: string, updates: Partial<User>): User | null 
   }
 };
 
-export const deleteUser = (userId: string): void => {
+export const deleteUserDB = (userId: string): void => {
   try {
     db.prepare('DELETE FROM users WHERE id = ?').run(userId);
   } catch (error) {
@@ -347,7 +363,7 @@ export const deleteUser = (userId: string): void => {
 };
 
 // Session operations
-export const getUserSession = (userId: string): ProcessingSession | null => {
+export const getUserSessionDB = (userId: string): ProcessingSession | null => {
   try {
     const session = db.prepare('SELECT * FROM processing_sessions WHERE user_id = ?').get(userId) as ProcessingSession | undefined;
     return session || null;
@@ -357,7 +373,7 @@ export const getUserSession = (userId: string): ProcessingSession | null => {
   }
 };
 
-export const createSession = (userId: string): ProcessingSession => {
+export const createSessionDB = (userId: string): ProcessingSession => {
   try {
     // Remove existing session for this user
     db.prepare('DELETE FROM processing_sessions WHERE user_id = ?').run(userId);
@@ -369,7 +385,7 @@ export const createSession = (userId: string): ProcessingSession => {
       rejected_count: 0,
       loaded_count: 0,
       tested_count: 0,
-      is_active: 0,
+      is_active: false,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -396,7 +412,7 @@ export const createSession = (userId: string): ProcessingSession => {
   }
 };
 
-export const updateSession = (sessionId: string, updates: Partial<ProcessingSession>): ProcessingSession | null => {
+export const updateSessionDB = (sessionId: string, updates: Partial<ProcessingSession>): ProcessingSession | null => {
   try {
     const session = db.prepare('SELECT * FROM processing_sessions WHERE id = ?').get(sessionId) as ProcessingSession | undefined;
     if (!session) return null;
@@ -429,7 +445,7 @@ export const updateSession = (sessionId: string, updates: Partial<ProcessingSess
 };
 
 // Plan operations
-export const getSubscriptionPlans = (): SubscriptionPlan[] => {
+export const getSubscriptionPlansDB = (): SubscriptionPlan[] => {
   try {
     return db.prepare('SELECT * FROM subscription_plans WHERE is_active = 1 ORDER BY price ASC').all() as SubscriptionPlan[];
   } catch (error) {
@@ -438,7 +454,7 @@ export const getSubscriptionPlans = (): SubscriptionPlan[] => {
   }
 };
 
-export const getAllSubscriptionPlans = (): SubscriptionPlan[] => {
+export const getAllSubscriptionPlansDB = (): SubscriptionPlan[] => {
   try {
     return db.prepare('SELECT * FROM subscription_plans ORDER BY created_at DESC').all() as SubscriptionPlan[];
   } catch (error) {
@@ -447,7 +463,7 @@ export const getAllSubscriptionPlans = (): SubscriptionPlan[] => {
   }
 };
 
-export const createSubscriptionPlan = (planData: {
+export const createSubscriptionPlanDB = (planData: {
   name: string;
   days: number;
   price: number;
@@ -460,7 +476,7 @@ export const createSubscriptionPlan = (planData: {
       days: planData.days,
       price: planData.price,
       description: planData.description || '',
-      is_active: 1,
+      is_active: true,
       created_at: new Date().toISOString()
     };
 
@@ -484,7 +500,7 @@ export const createSubscriptionPlan = (planData: {
   }
 };
 
-export const updateSubscriptionPlan = (planId: string, updates: Partial<SubscriptionPlan>): SubscriptionPlan | null => {
+export const updateSubscriptionPlanDB = (planId: string, updates: Partial<SubscriptionPlan>): SubscriptionPlan | null => {
   try {
     const plan = db.prepare('SELECT * FROM subscription_plans WHERE id = ?').get(planId) as SubscriptionPlan | undefined;
     if (!plan) return null;
@@ -514,7 +530,7 @@ export const updateSubscriptionPlan = (planId: string, updates: Partial<Subscrip
   }
 };
 
-export const deleteSubscriptionPlan = (planId: string): void => {
+export const deleteSubscriptionPlanDB = (planId: string): void => {
   try {
     db.prepare('DELETE FROM subscription_plans WHERE id = ?').run(planId);
   } catch (error) {
@@ -524,7 +540,7 @@ export const deleteSubscriptionPlan = (planId: string): void => {
 };
 
 // Purchase operations
-export const createPurchase = (purchaseData: {
+export const createPurchaseDB = (purchaseData: {
   user_id: string;
   plan_id: string;
   days_added: number;
@@ -556,9 +572,9 @@ export const createPurchase = (purchaseData: {
     );
 
     // Update user subscription days
-    const user = getUserById(purchaseData.user_id);
+    const user = getUserByIdDB(purchaseData.user_id);
     if (user) {
-      updateUser(user.id, {
+      updateUserDB(user.id, {
         subscription_days: user.subscription_days + purchaseData.days_added
       });
     }
@@ -571,7 +587,7 @@ export const createPurchase = (purchaseData: {
 };
 
 // Stats
-export const getSystemStats = () => {
+export const getSystemStatsDB = () => {
   try {
     const totalUsers = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
     const activeUsers = db.prepare('SELECT COUNT(*) as count FROM users WHERE is_banned = 0 AND subscription_days > 0').get() as { count: number };
@@ -623,6 +639,9 @@ export const initDatabase = (): void => {
     throw error;
   }
 };
+
+// Export database instance for direct access if needed
+export { db };
 
 // Initialize on import
 initDatabase();
