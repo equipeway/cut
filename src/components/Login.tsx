@@ -121,7 +121,7 @@ export function Login() {
               IP: {ipLoading ? 'Detecting...' : ipAddress}
             </div>
             <p className="text-gray-500 text-xs">
-              Demo: admin@terramail.com / admin123
+              Acesso para clientes registrados
             </p>
           </div>
         </div>

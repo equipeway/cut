@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Login } from './components/Login';
+import { AdminLogin } from './components/AdminLogin';
 import { Dashboard } from './components/Dashboard';
 import { HomePage } from './components/HomePage';
 
@@ -35,6 +36,10 @@ function AppContent() {
       <Route 
         path="/login" 
         element={user ? <Navigate to="/dashboard" replace /> : <Login />} 
+      />
+      <Route 
+        path="/admin" 
+        element={user ? <Navigate to="/dashboard" replace /> : <AdminLogin />} 
       />
       <Route 
         path="/dashboard" 
