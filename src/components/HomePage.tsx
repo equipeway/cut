@@ -1,66 +1,287 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { Shield, LogIn, Crown, Clock, Check, ExternalLink, Zap, Users, ArrowRight, Star, Activity, Package, AlertTriangle } from 'lucide-react';
+import { getSubscriptionPlans, SubscriptionPlan } from '../lib/database';
+import { isSupabaseConfigured } from '../lib/supabase';
 
-export function HomePage() {
-  const { user } = useAuth();
+interface PlanCardProps {
+  plan: SubscriptionPlan;
+  isPopular?: boolean;
+}
+
+function getPlanIcon(planName: string) {
+  switch (planName.toLowerCase()) {
+    case 'plano básico':
+      return <Shield className="w-6 h-6" />;
+    case 'plano standard':
+      return <Activity className="w-6 h-6" />;
+    case 'plano premium':
+      return <Zap className="w-6 h-6" />;
+    case 'plano ultimate':
+      return <Users className="w-6 h-6" />;
+    default:
+      return <Shield className="w-6 h-6" />;
+  }
+}
+
+function PlanCard({ plan, isPopular = false }: PlanCardProps) {
+  const features = [
+    'Processamento seguro',
+    'Suporte técnico',
+    'Dashboard completo',
+    'Relatórios detalhados',
+    'API avançada',
+    'Monitoramento 24/7'
+  ];
+
+  const handlePurchase = () => {
+    window.open('https://t.me/monetizei', '_blank');
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col items-center justify-center min-h-screen text-center">
-          <div className="max-w-3xl">
-            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
-              TerraMail
-            </h1>
-            <p className="text-xl md:text-2xl text-gray-600 mb-8">
-              Sistema de gerenciamento de usuários e assinaturas
-            </p>
-            <p className="text-lg text-gray-500 mb-12">
-              Gerencie usuários, planos de assinatura e controle de acesso de forma simples e eficiente.
-            </p>
-            
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              {user ? (
-                <Link
-                  to="/dashboard"
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg text-lg font-medium transition-colors"
-                >
-                  Ir para Dashboard
-                </Link>
-              ) : (
-                <>
-                  <Link
-                    to="/login"
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg text-lg font-medium transition-colors"
-                  >
-                    Fazer Login
-                  </Link>
-                  <Link
-                    to="/admin-login"
-                    className="bg-gray-600 hover:bg-gray-700 text-white px-8 py-3 rounded-lg text-lg font-medium transition-colors"
-                  >
-                    Login Admin
-                  </Link>
-                </>
-              )}
-            </div>
+    <div className={`relative bg-gray-900/80 backdrop-blur-xl rounded-2xl border p-8 hover:scale-105 transition-all duration-300 group shadow-xl ${
+      isPopular ? 'border-purple-500' : 'border-gray-800'
+    }`}>
+      {isPopular && (
+        <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+          <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg flex items-center gap-1">
+            <Star className="w-3 h-3" />
+            Mais Popular
+          </div>
+        </div>
+      )}
 
-            {user && (
-              <div className="mt-8 p-4 bg-white rounded-lg shadow-md">
-                <p className="text-sm text-gray-600">
-                  Logado como: <span className="font-medium">{user.email}</span>
-                </p>
-                {user.subscription_days > 0 && (
-                  <p className="text-sm text-green-600 mt-1">
-                    {user.subscription_days} dias de assinatura restantes
-                  </p>
-                )}
+      <div className="text-center mb-6">
+        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg group-hover:scale-110 transition-transform ${
+          isPopular ? 'bg-purple-500 text-white' : 'bg-gray-800 text-purple-400'
+        }`}>
+          {getPlanIcon(plan.name)}
+        </div>
+        <h3 className="text-2xl font-bold text-white mb-2">{plan.name}</h3>
+        <p className="text-gray-300 text-sm leading-relaxed">{plan.description}</p>
+      </div>
+
+      <div className="text-center mb-6">
+        <div className="text-4xl font-bold text-white mb-2">
+          R$ {plan.price.toFixed(2)}
+        </div>
+        <div className="flex items-center justify-center gap-2 text-purple-300 text-sm font-medium">
+          <Clock className="w-3 h-3" />
+          {plan.days} dias
+        </div>
+      </div>
+
+      <div className="space-y-3 mb-8">
+        {features.map((feature, index) => (
+          <div key={index} className="flex items-center gap-3 text-gray-300 text-sm p-2 rounded-lg hover:bg-gray-800/30 transition-all">
+            <div className="w-5 h-5 bg-purple-500/20 rounded-lg flex items-center justify-center">
+              <Check className="w-3 h-3 text-purple-400" />
+            </div>
+            <span className="font-medium">{feature}</span>
+          </div>
+        ))}
+      </div>
+
+      <button
+        onClick={handlePurchase}
+        className={`w-full py-4 px-6 rounded-xl font-bold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:scale-105 ${
+          isPopular
+            ? 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-purple-500/25'
+            : 'bg-gray-800 hover:bg-gray-700 text-white border border-gray-700 shadow-gray-500/25'
+        }`}
+      >
+        Comprar
+        <ExternalLink className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
+
+export function HomePage() {
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadPlans();
+  }, []);
+
+  const loadPlans = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      if (isSupabaseConfigured()) {
+        const plansData = await getSubscriptionPlans();
+        setPlans(plansData);
+      } else {
+        setError('Sistema não configurado. Por favor, conecte ao Supabase.');
+      }
+    } catch (error) {
+      console.error('Error loading plans:', error);
+      setError('Erro ao carregar planos. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto mb-4"></div>
+          <p className="text-white">Carregando planos...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-purple-900 text-white">
+        <header className="bg-gray-900/50 backdrop-blur-xl border-b border-purple-500/20 sticky top-0 z-50">
+          <div className="max-w-6xl mx-auto px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl flex items-center justify-center shadow-lg">
+                  <Shield className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold">TerrraMail Pro</h1>
+                  <p className="text-purple-300 text-xs">Processamento Avançado</p>
+                </div>
               </div>
-            )}
+              <Link
+                to="/login"
+                className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-6 py-3 rounded-xl font-medium transition-all flex items-center gap-2 shadow-lg shadow-purple-500/25 hover:scale-105"
+              >
+                <LogIn className="w-4 h-4" />
+                Login
+              </Link>
+            </div>
+          </div>
+        </header>
+        
+        <div className="max-w-6xl mx-auto px-6 py-20">
+          <div className="text-center">
+            <div className="w-20 h-20 bg-red-500/20 rounded-3xl flex items-center justify-center mx-auto mb-8">
+              <AlertTriangle className="w-10 h-10 text-red-400" />
+            </div>
+            <h2 className="text-3xl font-bold text-white mb-4">Sistema Não Configurado</h2>
+            <p className="text-gray-300 text-lg mb-8">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-8 py-4 rounded-2xl font-bold transition-all shadow-lg shadow-purple-500/25 hover:scale-105"
+            >
+              Tentar Novamente
+            </button>
           </div>
         </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-purple-900 text-white">
+      {/* Header */}
+      <header className="bg-gray-900/50 backdrop-blur-xl border-b border-purple-500/20 sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl flex items-center justify-center shadow-lg">
+                <Shield className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold">TerrraMail Pro</h1>
+                <p className="text-purple-300 text-xs">Processamento Avançado</p>
+              </div>
+            </div>
+            <Link
+              to="/login"
+              className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-6 py-3 rounded-xl font-medium transition-all flex items-center gap-2 shadow-lg shadow-purple-500/25 hover:scale-105"
+            >
+              <LogIn className="w-4 h-4" />
+              Login
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero */}
+      <div className="max-w-6xl mx-auto px-6 py-20">
+        <div className="text-center mb-16">
+          <h2 className="text-6xl font-bold mb-8 bg-gradient-to-r from-white via-purple-200 to-purple-400 bg-clip-text text-transparent">
+            Plataforma de
+            <br />
+            <span className="text-purple-400">Processamento Avançado</span>
+          </h2>
+          <p className="text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
+            Tecnologia de ponta para processamento seguro, rápido e confiável com monitoramento em tempo real
+          </p>
+        </div>
+
+        {/* Plans */}
+        <div className="mb-20">
+          <div className="text-center mb-12">
+            <h3 className="text-4xl font-bold mb-6">Nossos Planos</h3>
+            <p className="text-gray-300 text-lg">Escolha o plano ideal para suas necessidades</p>
+          </div>
+          
+          {plans.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+              {plans.map((plan, index) => (
+                <PlanCard
+                  key={plan.id}
+                  plan={plan}
+                  isPopular={index === 1}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Package className="w-8 h-8 text-gray-500" />
+              </div>
+              <p className="text-gray-400 font-medium">Nenhum plano disponível</p>
+              <p className="text-gray-500 text-sm">Configure o Supabase para ver os planos</p>
+            </div>
+          )}
+        </div>
+
+        {/* CTA */}
+        <div className="text-center bg-gray-900/60 backdrop-blur-xl rounded-3xl border border-purple-500/20 p-16 shadow-2xl">
+          <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-purple-700 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-lg">
+            <Shield className="w-10 h-10 text-white" />
+          </div>
+          <h4 className="text-3xl font-bold mb-4 text-white">Já tem uma conta?</h4>
+          <p className="text-gray-300 mb-10 text-lg">Acesse sua plataforma de processamento agora</p>
+          <Link
+            to="/login"
+            className="inline-flex items-center gap-3 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-8 py-4 rounded-2xl font-bold transition-all shadow-lg shadow-purple-500/25 hover:scale-105"
+          >
+            <LogIn className="w-5 h-5" />
+            Acessar Plataforma
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <footer className="bg-gray-900/30 backdrop-blur-xl border-t border-purple-500/20">
+        <div className="max-w-6xl mx-auto px-6 py-8">
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <div className="w-6 h-6 bg-purple-500 rounded-lg flex items-center justify-center">
+                <Shield className="w-3 h-3 text-white" />
+              </div>
+              <span className="text-white font-semibold">TerrraMail Pro</span>
+            </div>
+            <div className="text-gray-400 text-sm">
+              © 2025 TerrraMail Pro. Todos os direitos reservados.
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

@@ -1,6 +1,15 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { getUserByEmail, logLoginAttempt, User } from '../lib/database';
-import { isNeonConfigured } from '../lib/neon';
+import { getUserByEmail, logLoginAttempt } from '../lib/database';
+import { isSupabaseConfigured } from '../lib/supabase';
+import bcrypt from 'bcryptjs';
+
+interface User {
+  id: string;
+  email: string;
+  role: 'user' | 'admin';
+  subscription_days: number;
+  is_banned: boolean;
+}
 
 interface AuthContextType {
   user: User | null;
@@ -20,22 +29,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initAuth = async () => {
       try {
         const savedUser = localStorage.getItem('terramail_user');
-        if (savedUser && isNeonConfigured()) {
+        if (savedUser && isSupabaseConfigured()) {
           const userData = JSON.parse(savedUser);
           
-          // Validate user still exists in Neon
+          // Validate user still exists in Supabase
           const dbUser = await getUserByEmail(userData.email);
           if (dbUser && dbUser.id === userData.id) {
             setUser({
               id: dbUser.id,
               email: dbUser.email,
-              password_hash: dbUser.password_hash,
               role: dbUser.role,
               subscription_days: dbUser.subscription_days,
-              allowed_ips: dbUser.allowed_ips,
-              is_banned: dbUser.is_banned,
-              created_at: dbUser.created_at,
-              updated_at: dbUser.updated_at
+              is_banned: dbUser.is_banned
             });
           } else {
             localStorage.removeItem('terramail_user');
@@ -53,10 +58,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string, ipAddress: string = '127.0.0.1') => {
-    if (!isNeonConfigured()) {
+    if (!isSupabaseConfigured()) {
       return { 
         success: false, 
-        error: 'Sistema não configurado. Por favor, configure o Neon Database para usar esta funcionalidade.' 
+        error: 'Sistema não configurado. Por favor, conecte ao Supabase para usar esta funcionalidade.' 
       };
     }
 
@@ -75,6 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       console.log('Password hash from database:', foundUser.password_hash);
       console.log('Password provided:', password);
+      console.log('Hash starts with $2a$ or $2b$:', foundUser.password_hash.startsWith('$2a$') || foundUser.password_hash.startsWith('$2b$'));
       
       console.log('Comparing password...');
       let passwordMatch = false;
@@ -105,13 +111,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const userData: User = {
         id: foundUser.id,
         email: foundUser.email,
-        password_hash: foundUser.password_hash,
         role: foundUser.role,
         subscription_days: foundUser.subscription_days,
-        allowed_ips: foundUser.allowed_ips,
-        is_banned: foundUser.is_banned,
-        created_at: foundUser.created_at,
-        updated_at: foundUser.updated_at
+        is_banned: foundUser.is_banned
       };
 
       localStorage.setItem('terramail_user', JSON.stringify(userData));

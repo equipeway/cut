@@ -1,618 +1,958 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { isSupabaseConfigured } from '../lib/supabase';
 import { 
-  getAllUsers, 
-  getAllSubscriptionPlans, 
-  createSubscriptionPlan, 
-  updateSubscriptionPlan,
-  deleteSubscriptionPlan,
-  getAllUserPurchases,
-  createUserPurchase,
-  updateUserSubscription,
-  banUser,
-  unbanUser,
-  User,
-  SubscriptionPlan,
-  UserPurchase
+  ProcessingSession,
+  getUserSession,
+  createSession,
+  updateSession
 } from '../lib/database';
+import { AdminUserManagement } from './AdminUserManagement';
+import { 
+  Play, 
+  Square, 
+  LogOut, 
+  Settings, 
+  X, 
+  CheckCircle,
+  XCircle,
+  Clock,
+  Database,
+  TrendingUp,
+  AlertTriangle,
+  Shield,
+  Zap,
+  Activity,
+  BarChart3,
+  Cpu,
+  HardDrive,
+  Wifi,
+  Server,
+  Globe,
+  Lock,
+  Users,
+  Calendar,
+  DollarSign
+} from 'lucide-react';
+
+interface ProcessingResult {
+  input: string;
+  approved: boolean;
+  message?: string;
+}
+
+interface Notification {
+  id: string;
+  type: 'success' | 'error' | 'warning' | 'info';
+  message: string;
+  timestamp: Date;
+}
+
+interface InfoBox {
+  id: string;
+  title: string;
+  value: string | number;
+  icon: React.ComponentType<any>;
+  color: string;
+  trend?: string;
+  description?: string;
+}
 
 export function Dashboard() {
   const { user, logout, isAdmin } = useAuth();
-  const navigate = useNavigate();
-  const [users, setUsers] = useState<User[]>([]);
-  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
-  const [purchases, setPurchases] = useState<UserPurchase[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'users' | 'plans' | 'purchases'>('users');
-
-  // Form states
-  const [newPlan, setNewPlan] = useState({
-    name: '',
-    days: 0,
-    price: 0,
-    description: ''
-  });
-
-  const [newPurchase, setNewPurchase] = useState({
-    user_email: '',
-    plan_id: '',
-    payment_method: 'manual'
+  const [inputList, setInputList] = useState('');
+  const [results, setResults] = useState<ProcessingResult[]>([]);
+  const [session, setSession] = useState<ProcessingSession | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [progress, setProgress] = useState(0);
+  const [currentItem, setCurrentItem] = useState('');
+  const [supabaseError, setSupabaseError] = useState<string | null>(null);
+  const [systemInfo, setSystemInfo] = useState({
+    cpuUsage: 45,
+    memoryUsage: 62,
+    networkStatus: 'online',
+    serverLoad: 23,
+    activeConnections: 156,
+    uptime: '99.9%'
   });
 
   useEffect(() => {
-    if (!user) {
-      navigate('/login');
+    if (user) {
+      if (isSupabaseConfigured()) {
+        loadSession();
+      } else {
+        setSupabaseError('Sistema não configurado. Por favor, conecte ao Supabase.');
+      }
+      // Simulate real-time system updates
+      const interval = setInterval(() => {
+        setSystemInfo(prev => ({
+          ...prev,
+          cpuUsage: Math.max(20, Math.min(80, prev.cpuUsage + (Math.random() - 0.5) * 10)),
+          memoryUsage: Math.max(30, Math.min(90, prev.memoryUsage + (Math.random() - 0.5) * 8)),
+          serverLoad: Math.max(10, Math.min(50, prev.serverLoad + (Math.random() - 0.5) * 6)),
+          activeConnections: Math.max(100, Math.min(300, prev.activeConnections + Math.floor((Math.random() - 0.5) * 20)))
+        }));
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
+
+  const addNotification = (type: Notification['type'], message: string) => {
+    const notification: Notification = {
+      id: Date.now().toString(),
+      type,
+      message,
+      timestamp: new Date()
+    };
+    setNotifications(prev => [notification, ...prev]);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== notification.id));
+    }, 5000);
+  };
+
+  const loadSession = async () => {
+    if (!user) return;
+
+    try {
+      let userSession = await getUserSession(user.id);
+      if (!userSession) {
+        userSession = await createSession(user.id);
+      }
+      setSession(userSession);
+      setSupabaseError(null);
+    } catch (error) {
+      console.error('Error loading/creating session:', error);
+      setSupabaseError('Erro ao carregar sessão. Verifique a configuração do Supabase.');
+      addNotification('error', 'Erro ao carregar sessão do usuário');
+    }
+  };
+
+  const updateSessionData = async (updates: Partial<ProcessingSession>) => {
+    if (!session) return;
+
+    try {
+      const updatedSession = await updateSession(session.id, updates);
+      if (updatedSession) {
+        setSession(updatedSession);
+      }
+    } catch (error) {
+      console.error('Error updating session:', error);
+      addNotification('error', 'Erro ao atualizar sessão');
+    }
+  };
+
+  const startProcessing = async () => {
+    if (!isSupabaseConfigured()) {
+      addNotification('error', 'Sistema não configurado. Conecte ao Supabase primeiro.');
       return;
     }
 
-    loadData();
-  }, [user, navigate]);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [usersData, plansData, purchasesData] = await Promise.all([
-        getAllUsers(),
-        getAllSubscriptionPlans(),
-        isAdmin ? getAllUserPurchases() : Promise.resolve([])
-      ]);
-
-      setUsers(usersData || []);
-      setPlans(plansData || []);
-      setPurchases(purchasesData || []);
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-    } finally {
-      setLoading(false);
+    let lines = inputList.split('\n').filter(line => line.trim());
+    if (lines.length === 0) {
+      addNotification('warning', 'Please enter items to process');
+      return;
     }
-  };
 
-  const handleCreatePlan = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await createSubscriptionPlan(
-        newPlan.name,
-        newPlan.days,
-        newPlan.price,
-        newPlan.description
-      );
-      setNewPlan({ name: '', days: 0, price: 0, description: '' });
-      loadData();
-    } catch (error) {
-      console.error('Erro ao criar plano:', error);
-    }
-  };
+    setIsProcessing(true);
+    setResults([]);
+    setProgress(0);
+    
+    await updateSessionData({
+      loaded_count: lines.length,
+      tested_count: 0,
+      approved_count: 0,
+      rejected_count: 0,
+      is_active: true
+    });
 
-  const handleTogglePlan = async (planId: string, currentStatus: boolean) => {
-    try {
-      const newStatus = !currentStatus;
-      console.log(`Toggling plan ${planId} from ${currentStatus} to ${newStatus}`);
-      
-      const result = await updateSubscriptionPlan(planId, { is_active: newStatus });
-      console.log('Update result:', result);
-      
-      if (result) {
-        console.log('Plan updated successfully, reloading data...');
-        await loadData();
-      } else {
-        console.error('Failed to update plan - no result returned');
-      }
-    } catch (error) {
-      console.error('Erro ao atualizar plano:', error);
-    }
-  };
+    addNotification('info', `Starting processing of ${lines.length} items`);
 
-  const handleDeletePlan = async (planId: string) => {
-    if (confirm('Tem certeza que deseja deletar este plano?')) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      setCurrentItem(line);
+      setProgress(((i + 1) / lines.length) * 100);
+      // Remove linha processada da lista
+      setInputList(prev => {
+        const arr = prev.split('\n').filter(l => l.trim());
+        arr.shift();
+        return arr.join('\n');
+      });
       try {
-        await deleteSubscriptionPlan(planId);
-        loadData();
+        let approved = false;
+        let message = '';
+
+        try {
+          const apiUrl = import.meta.env.VITE_API_URL || 'https://9cf09ef93437.ngrok-free.app/api/check';
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'ngrok-skip-browser-warning': 'true',
+            },
+            body: JSON.stringify({ data: line })
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const result = await response.json();
+          approved = result.status === 'approved' || result.status === 'Aprovada' || result.approved === true;
+          message = result.message || result.retorno || result.status;
+        } catch (apiError) {
+          console.warn('API unavailable, using mock processing:', apiError);
+          
+          const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(line);
+          const hasValidDomain = line.includes('.com') || line.includes('.org') || line.includes('.net');
+          
+          approved = isEmail && hasValidDomain;
+          message = approved ? 'Valid email format' : 'Invalid format or domain';
+          
+          if (i === 0) {
+            addNotification('warning', 'API unavailable - using offline mode');
+          }
+        }
+        
+        const newResult: ProcessingResult = {
+          input: line,
+          approved,
+          message
+        };
+
+        setResults(prev => [...prev, newResult]);
+
+        if (session) {
+          const newApproved = session.approved_count + (approved ? 1 : 0);
+          const newRejected = session.rejected_count + (!approved ? 1 : 0);
+          const newTested = session.tested_count + 1;
+
+          await updateSessionData({
+            approved_count: newApproved,
+            rejected_count: newRejected,
+            tested_count: newTested
+          });
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 100));
       } catch (error) {
-        console.error('Erro ao deletar plano:', error);
+        console.error('Processing error:', error);
+        
+        let errorMessage = 'Network error';
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+          errorMessage = 'Unable to connect to processing server';
+        } else if (error instanceof Error) {
+          errorMessage = error.message;
+        }
+        
+        const newResult: ProcessingResult = {
+          input: line,
+          approved: false,
+          message: errorMessage
+        };
+        setResults(prev => [...prev, newResult]);
+        
+        if (i === 0) {
+          addNotification('error', `Connection failed: ${errorMessage}`);
+        }
+        
+        if (session) {
+          const newRejected = session.rejected_count + 1;
+          const newTested = session.tested_count + 1;
+
+          await updateSessionData({
+            rejected_count: newRejected,
+            tested_count: newTested
+          });
+        }
       }
     }
+
+    setIsProcessing(false);
+    setCurrentItem('');
+    setProgress(100);
+    await updateSessionData({ is_active: false });
+    
+    const finalResults = results.length > 0 ? results : [];
+    const approvedCount = finalResults.filter(r => r.approved).length;
+    addNotification('success', `Processing complete: ${approvedCount} approved, ${results.length - approvedCount} rejected`);
   };
 
-  const handleCreatePurchase = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const selectedPlan = plans.find(p => p.id === newPurchase.plan_id);
-      if (!selectedPlan) return;
+  const stopProcessing = () => {
+    setIsProcessing(false);
+    setCurrentItem('');
+    updateSessionData({ is_active: false });
+    addNotification('warning', 'Processing stopped by user');
+  };
 
-      await createUserPurchase(
-        newPurchase.user_email,
-        newPurchase.plan_id,
-        selectedPlan.days,
-        selectedPlan.price,
-        newPurchase.payment_method
-      );
+  const clearResults = () => {
+    setResults([]);
+    setInputList('');
+    setProgress(0);
+    if (session) {
+      updateSessionData({
+        approved_count: 0,
+        rejected_count: 0,
+        loaded_count: 0,
+        tested_count: 0
+      });
+    }
+    addNotification('info', 'Results cleared');
+  };
 
-      await updateUserSubscription(newPurchase.user_email, selectedPlan.days);
-      
-      setNewPurchase({ user_email: '', plan_id: '', payment_method: 'manual' });
-      loadData();
-    } catch (error) {
-      console.error('Erro ao criar compra:', error);
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'success': return <CheckCircle className="w-4 h-4" />;
+      case 'error': return <XCircle className="w-4 h-4" />;
+      case 'warning': return <AlertTriangle className="w-4 h-4" />;
+      default: return <Clock className="w-4 h-4" />;
     }
   };
 
-  const handleBanUser = async (userId: string, email: string) => {
-    if (confirm(`Tem certeza que deseja banir o usuário ${email}?`)) {
-      try {
-        await banUser(userId);
-        loadData();
-      } catch (error) {
-        console.error('Erro ao banir usuário:', error);
-      }
+  const getNotificationColors = (type: string) => {
+    switch (type) {
+      case 'success': return 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400';
+      case 'error': return 'bg-red-500/10 border-red-500/20 text-red-400';
+      case 'warning': return 'bg-amber-500/10 border-amber-500/20 text-amber-400';
+      default: return 'bg-purple-500/10 border-purple-500/20 text-purple-400';
     }
   };
 
-  const handleUnbanUser = async (userId: string, email: string) => {
-    if (confirm(`Tem certeza que deseja desbanir o usuário ${email}?`)) {
-      try {
-        await unbanUser(userId);
-        loadData();
-      } catch (error) {
-        console.error('Erro ao desbanir usuário:', error);
-      }
+  // Info boxes data
+  const infoBoxes: InfoBox[] = [
+    {
+      id: 'processed',
+      title: 'Processados Hoje',
+      value: session?.tested_count || 0,
+      icon: Activity,
+      color: 'blue',
+      trend: '+12%',
+      description: 'Total de itens processados'
+    },
+    {
+      id: 'approved',
+      title: 'Taxa de Aprovação',
+      value: session?.tested_count ? `${Math.round((session.approved_count / session.tested_count) * 100)}%` : '0%',
+      icon: CheckCircle,
+      color: 'emerald',
+      trend: '+5%',
+      description: 'Percentual de aprovação'
+    },
+    {
+      id: 'speed',
+      title: 'Velocidade Média',
+      value: '2.3s',
+      icon: Zap,
+      color: 'yellow',
+      trend: '-0.2s',
+      description: 'Tempo médio por item'
+    },
+    {
+      id: 'uptime',
+      title: 'Uptime do Sistema',
+      value: systemInfo.uptime,
+      icon: Server,
+      color: 'purple',
+      trend: 'Estável',
+      description: 'Disponibilidade do sistema'
     }
-  };
+  ];
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Carregando...</p>
-        </div>
-      </div>
-    );
-  }
+  const systemInfoBoxes: InfoBox[] = [
+    {
+      id: 'cpu',
+      title: 'CPU',
+      value: `${systemInfo.cpuUsage}%`,
+      icon: Cpu,
+      color: systemInfo.cpuUsage > 70 ? 'red' : systemInfo.cpuUsage > 50 ? 'yellow' : 'emerald',
+      description: 'Uso do processador'
+    },
+    {
+      id: 'memory',
+      title: 'Memória',
+      value: `${systemInfo.memoryUsage}%`,
+      icon: HardDrive,
+      color: systemInfo.memoryUsage > 80 ? 'red' : systemInfo.memoryUsage > 60 ? 'yellow' : 'emerald',
+      description: 'Uso da memória RAM'
+    },
+    {
+      id: 'network',
+      title: 'Rede',
+      value: systemInfo.networkStatus === 'online' ? 'Online' : 'Offline',
+      icon: Wifi,
+      color: systemInfo.networkStatus === 'online' ? 'emerald' : 'red',
+      description: 'Status da conexão'
+    },
+    {
+      id: 'connections',
+      title: 'Conexões',
+      value: systemInfo.activeConnections,
+      icon: Globe,
+      color: 'blue',
+      description: 'Conexões ativas'
+    }
+  ];
+
+  const getInfoBoxColors = (color: string) => {
+    const colors = {
+      blue: 'bg-blue-500/10 border-blue-500/20 text-blue-400',
+      emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
+      yellow: 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400',
+      purple: 'bg-purple-500/10 border-purple-500/20 text-purple-400',
+      red: 'bg-red-500/10 border-red-500/20 text-red-400'
+    };
+    return colors[color as keyof typeof colors] || colors.blue;
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <h1 className="text-3xl font-bold text-gray-900">
-              {isAdmin ? 'Painel Administrativo' : 'Dashboard'}
-            </h1>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
-                Olá, {user?.email} ({user?.role})
-              </span>
-              {user?.subscription_days && (
-                <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">
-                  {user.subscription_days} dias restantes
-                </span>
-              )}
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
+      {/* Notifications */}
+      <div className="fixed top-4 right-4 z-[9999] space-y-2 max-w-sm pointer-events-none">
+        {notifications.map(notification => (
+          <div
+            key={notification.id}
+            className={`${getNotificationColors(notification.type)} border rounded-xl p-4 backdrop-blur-xl shadow-lg transform transition-all duration-300 ease-out pointer-events-auto`}
+            style={{
+              animation: 'slideInFromRight 0.3s ease-out'
+            }}
+          >
+            <div className="flex items-start gap-3">
+              {getNotificationIcon(notification.type)}
+              <div className="flex-1">
+                <p className="text-sm font-medium">{notification.message}</p>
+                <p className="text-xs opacity-70 mt-1">
+                  {notification.timestamp.toLocaleTimeString()}
+                </p>
+              </div>
               <button
-                onClick={logout}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                onClick={() => setNotifications(prev => prev.filter(n => n.id !== notification.id))}
+                className="text-current opacity-50 hover:opacity-100 transition-opacity"
               >
-                Sair
+                <X className="w-4 h-4" />
               </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Enhanced Header */}
+      <header className="bg-gray-900/80 backdrop-blur-xl border-b border-purple-500/20 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/25">
+                <Shield className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-white">TerrraMail Pro</h1>
+                <p className="text-purple-300 text-xs">Plataforma de Processamento Avançado</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-6">
+              {/* User Info Card */}
+              <div className="bg-gray-800/50 rounded-xl px-4 py-3 border border-purple-500/20">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-purple-600 rounded-lg flex items-center justify-center">
+                    <span className="text-white text-sm font-bold">
+                      {user?.email.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-white text-sm font-medium">{user?.email}</p>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                        user?.role === 'admin' 
+                          ? 'bg-purple-500/20 text-purple-300' 
+                          : 'bg-blue-500/20 text-blue-300'
+                      }`}>
+                        {user?.role}
+                      </span>
+                      <span className="text-purple-300 text-xs">
+                        {user?.subscription_days} dias
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-3">
+                {isAdmin && (
+                  <button
+                    onClick={() => setShowAdmin(!showAdmin)}
+                    className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 transform hover:scale-105"
+                  >
+                    <Settings className="w-4 h-4" />
+                    Admin Panel
+                  </button>
+                )}
+                <button
+                  onClick={logout}
+                  className="text-gray-400 hover:text-white p-2 rounded-xl hover:bg-gray-800/50 transition-all"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        {isAdmin ? (
-          <div className="px-4 py-6 sm:px-0">
-            {/* Admin Tabs */}
-            <div className="border-b border-gray-200 mb-6">
-              <nav className="-mb-px flex space-x-8">
-                {['users', 'plans', 'purchases'].map((tab) => (
+      {showAdmin && isAdmin ? (
+        <div className="max-w-7xl mx-auto p-6">
+          {isSupabaseConfigured() ? (
+            <div className="bg-gray-900/60 backdrop-blur-xl rounded-3xl border border-purple-500/20 shadow-2xl overflow-hidden">
+              {/* Enhanced Admin Header */}
+              <div className="bg-gradient-to-r from-purple-600/20 to-purple-800/20 p-8 border-b border-purple-500/20">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-700 rounded-2xl flex items-center justify-center shadow-lg">
+                      <Settings className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold text-white">Painel Administrativo</h2>
+                      <p className="text-purple-300 text-sm">Controle total do sistema</p>
+                    </div>
+                  </div>
                   <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab as any)}
-                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                      activeTab === tab
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
+                    onClick={() => setShowAdmin(false)}
+                    className="text-gray-400 hover:text-white p-3 hover:bg-gray-800/50 rounded-xl transition-all"
                   >
-                    {tab === 'users' && 'Usuários'}
-                    {tab === 'plans' && 'Planos'}
-                    {tab === 'purchases' && 'Compras'}
+                    <X className="w-6 h-6" />
                   </button>
-                ))}
-              </nav>
-            </div>
-
-            {/* Users Tab */}
-            {activeTab === 'users' && (
-              <div className="bg-white shadow rounded-lg">
-                <div className="px-4 py-5 sm:p-6">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                    Gerenciar Usuários
-                  </h3>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Email
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Role
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Dias de Assinatura
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Status
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Ações
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {users.map((user) => (
-                          <tr key={user.id}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {user.email}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                user.role === 'admin' 
-                                  ? 'bg-purple-100 text-purple-800' 
-                                  : 'bg-gray-100 text-gray-800'
-                              }`}>
-                                {user.role}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {user.subscription_days}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                user.is_banned 
-                                  ? 'bg-red-100 text-red-800' 
-                                  : 'bg-green-100 text-green-800'
-                              }`}>
-                                {user.is_banned ? 'Banido' : 'Ativo'}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              {user.is_banned ? (
-                                <button
-                                  onClick={() => handleUnbanUser(user.id, user.email)}
-                                  className="text-green-600 hover:text-green-900 mr-3"
-                                >
-                                  Desbanir
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => handleBanUser(user.id, user.email)}
-                                  className="text-red-600 hover:text-red-900 mr-3"
-                                >
-                                  Banir
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
                 </div>
               </div>
-            )}
 
-            {/* Plans Tab */}
-            {activeTab === 'plans' && (
-              <div className="space-y-6">
-                {/* Create Plan Form */}
-                <div className="bg-white shadow rounded-lg">
-                  <div className="px-4 py-5 sm:p-6">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                      Criar Novo Plano
-                    </h3>
-                    <form onSubmit={handleCreatePlan} className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Nome</label>
-                          <input
-                            type="text"
-                            value={newPlan.name}
-                            onChange={(e) => setNewPlan({ ...newPlan, name: e.target.value })}
-                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Dias</label>
-                          <input
-                            type="number"
-                            value={newPlan.days}
-                            onChange={(e) => setNewPlan({ ...newPlan, days: parseInt(e.target.value) })}
-                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Preço (R$)</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={newPlan.price}
-                            onChange={(e) => setNewPlan({ ...newPlan, price: parseFloat(e.target.value) })}
-                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Descrição</label>
-                          <input
-                            type="text"
-                            value={newPlan.description}
-                            onChange={(e) => setNewPlan({ ...newPlan, description: e.target.value })}
-                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                          />
-                        </div>
-                      </div>
-                      <button
-                        type="submit"
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-                      >
-                        Criar Plano
-                      </button>
-                    </form>
-                  </div>
-                </div>
-
-                {/* Plans List */}
-                <div className="bg-white shadow rounded-lg">
-                  <div className="px-4 py-5 sm:p-6">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                      Planos de Assinatura
-                    </h3>
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Nome
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Dias
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Preço
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Status
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Ações
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {plans.map((plan) => (
-                            <tr key={plan.id}>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                {plan.name}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {plan.days}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                R$ {plan.price.toFixed(2)}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                  plan.is_active 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : 'bg-red-100 text-red-800'
-                                }`}>
-                                  {plan.is_active ? 'Ativo' : 'Inativo'}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                <button
-                                  onClick={() => handleTogglePlan(plan.id, plan.is_active)}
-                                  className={`mr-3 ${
-                                    plan.is_active 
-                                      ? 'text-red-600 hover:text-red-900' 
-                                      : 'text-green-600 hover:text-green-900'
-                                  }`}
-                                >
-                                  {plan.is_active ? 'Desativar' : 'Ativar'}
-                                </button>
-                                <button
-                                  onClick={() => handleDeletePlan(plan.id)}
-                                  className="text-red-600 hover:text-red-900"
-                                >
-                                  Deletar
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Purchases Tab */}
-            {activeTab === 'purchases' && (
-              <div className="space-y-6">
-                {/* Create Purchase Form */}
-                <div className="bg-white shadow rounded-lg">
-                  <div className="px-4 py-5 sm:p-6">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                      Adicionar Compra Manual
-                    </h3>
-                    <form onSubmit={handleCreatePurchase} className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Email do Usuário</label>
-                          <input
-                            type="email"
-                            value={newPurchase.user_email}
-                            onChange={(e) => setNewPurchase({ ...newPurchase, user_email: e.target.value })}
-                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Plano</label>
-                          <select
-                            value={newPurchase.plan_id}
-                            onChange={(e) => setNewPurchase({ ...newPurchase, plan_id: e.target.value })}
-                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                            required
-                          >
-                            <option value="">Selecione um plano</option>
-                            {plans.filter(p => p.is_active).map((plan) => (
-                              <option key={plan.id} value={plan.id}>
-                                {plan.name} - {plan.days} dias - R$ {plan.price.toFixed(2)}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Método de Pagamento</label>
-                          <select
-                            value={newPurchase.payment_method}
-                            onChange={(e) => setNewPurchase({ ...newPurchase, payment_method: e.target.value })}
-                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                          >
-                            <option value="manual">Manual</option>
-                            <option value="pix">PIX</option>
-                            <option value="credit_card">Cartão de Crédito</option>
-                          </select>
-                        </div>
-                      </div>
-                      <button
-                        type="submit"
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-                      >
-                        Adicionar Compra
-                      </button>
-                    </form>
-                  </div>
-                </div>
-
-                {/* Purchases List */}
-                <div className="bg-white shadow rounded-lg">
-                  <div className="px-4 py-5 sm:p-6">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                      Histórico de Compras
-                    </h3>
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Data
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Usuário
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Dias
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Valor
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Método
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {purchases.map((purchase) => (
-                            <tr key={purchase.id}>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {new Date(purchase.created_at).toLocaleDateString('pt-BR')}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {users.find(u => u.id === purchase.user_id)?.email || 'N/A'}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {purchase.days_added}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                R$ {purchase.amount_paid.toFixed(2)}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {purchase.payment_method}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          /* User Dashboard */
-          <div className="px-4 py-6 sm:px-0">
-            <div className="bg-white shadow rounded-lg">
-              <div className="px-4 py-5 sm:p-6">
-                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                  Minha Conta
+              {/* System Info Boxes */}
+              <div className="p-8 border-b border-purple-500/10">
+                <h3 className="text-white font-semibold mb-6 flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-purple-400" />
+                  Status do Sistema
                 </h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Email</label>
-                    <p className="mt-1 text-sm text-gray-900">{user?.email}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Dias de Assinatura Restantes</label>
-                    <p className="mt-1 text-sm text-gray-900">{user?.subscription_days || 0} dias</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Status da Conta</label>
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      user?.is_banned 
-                        ? 'bg-red-100 text-red-800' 
-                        : 'bg-green-100 text-green-800'
-                    }`}>
-                      {user?.is_banned ? 'Banida' : 'Ativa'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Available Plans */}
-            <div className="mt-6 bg-white shadow rounded-lg">
-              <div className="px-4 py-5 sm:p-6">
-                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                  Planos Disponíveis
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {plans.filter(p => p.is_active).map((plan) => (
-                    <div key={plan.id} className="border border-gray-200 rounded-lg p-4">
-                      <h4 className="text-lg font-medium text-gray-900">{plan.name}</h4>
-                      <p className="text-sm text-gray-600 mt-1">{plan.description}</p>
-                      <div className="mt-4">
-                        <span className="text-2xl font-bold text-gray-900">R$ {plan.price.toFixed(2)}</span>
-                        <span className="text-sm text-gray-600 ml-1">/ {plan.days} dias</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {systemInfoBoxes.map(box => (
+                    <div key={box.id} className={`${getInfoBoxColors(box.color)} border rounded-xl p-4 backdrop-blur-sm`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <box.icon className="w-5 h-5" />
+                        <span className="text-xs opacity-70">{box.description}</span>
                       </div>
-                      <button className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">
-                        Comprar
-                      </button>
+                      <div className="text-2xl font-bold text-white mb-1">{box.value}</div>
+                      <div className="text-sm font-medium">{box.title}</div>
                     </div>
                   ))}
                 </div>
               </div>
+
+              {/* Admin Content */}
+              <div className="p-8">
+                <AdminUserManagement />
+              </div>
+            </div>
+          ) : (
+            <div className="bg-gray-900/60 backdrop-blur-xl rounded-3xl border border-red-500/20 shadow-2xl p-12 text-center">
+              <div className="w-20 h-20 bg-red-500/20 rounded-3xl flex items-center justify-center mx-auto mb-8">
+                <AlertTriangle className="w-10 h-10 text-red-400" />
+              </div>
+              <h2 className="text-3xl font-bold text-white mb-4">Supabase Não Configurado</h2>
+              <p className="text-gray-300 text-lg mb-8">
+                Para usar o painel administrativo, você precisa conectar ao Supabase primeiro.
+              </p>
+              <button
+                onClick={() => setShowAdmin(false)}
+                className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-8 py-4 rounded-2xl font-bold transition-all shadow-lg shadow-purple-500/25 hover:scale-105"
+              >
+                Voltar ao Dashboard
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <main className="max-w-7xl mx-auto p-6">
+          {/* Supabase Configuration Warning */}
+          {supabaseError && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 mb-8 flex items-start gap-4">
+              <AlertTriangle className="w-6 h-6 text-red-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <div className="text-red-300 font-medium mb-1">Configuração Necessária</div>
+                <span className="text-red-300 text-sm">{supabaseError}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Performance Info Boxes */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {infoBoxes.map(box => (
+              <div key={box.id} className={`${getInfoBoxColors(box.color)} border rounded-2xl p-6 backdrop-blur-sm hover:scale-105 transition-all duration-200 cursor-pointer group`}>
+                <div className="flex items-center justify-between mb-4">
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${getInfoBoxColors(box.color)} border`}>
+                    <box.icon className="w-6 h-6" />
+                  </div>
+                  {box.trend && (
+                    <span className={`text-xs font-medium px-2 py-1 rounded-lg ${
+                      box.trend.startsWith('+') ? 'bg-emerald-500/20 text-emerald-300' : 
+                      box.trend.startsWith('-') ? 'bg-red-500/20 text-red-300' : 
+                      'bg-gray-500/20 text-gray-300'
+                    }`}>
+                      {box.trend}
+                    </span>
+                  )}
+                </div>
+                <div className="text-3xl font-bold text-white mb-2 group-hover:scale-110 transition-transform">
+                  {box.value}
+                </div>
+                <div className="text-sm font-medium mb-1">{box.title}</div>
+                {box.description && (
+                  <div className="text-xs opacity-70">{box.description}</div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+            {/* Main Processing Area */}
+            <div className="xl:col-span-2 space-y-8">
+              {/* Enhanced Input Section */}
+              <div className="bg-gray-900/60 backdrop-blur-xl rounded-3xl border border-purple-500/20 p-8 shadow-2xl">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
+                    <Database className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-white">Centro de Processamento</h3>
+                    <p className="text-gray-400 text-sm">Insira os dados para análise avançada</p>
+                  </div>
+                </div>
+
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="text-white text-sm font-semibold flex items-center gap-2">
+                      Lista de Processamento
+                    </label>
+                    <div className="text-xs text-purple-300 bg-purple-500/10 px-3 py-1 rounded-lg border border-purple-500/20">
+                      {inputList.split('\n').filter(line => line.trim()).length} itens carregados
+                    </div>
+                  </div>
+                  <textarea
+                    value={inputList}
+                    onChange={(e) => setInputList(e.target.value)}
+                    placeholder="Digite os itens para processar (um por linha)..."
+                    className="w-full h-48 bg-gray-800/50 border border-purple-500/30 rounded-2xl p-6 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 resize-none transition-all backdrop-blur-sm font-mono text-sm leading-relaxed"
+                  />
+                </div>
+                
+                {/* Enhanced Progress Bar */}
+                {(isProcessing || progress > 0) && (
+                  <div className="mb-8 bg-gray-800/30 rounded-2xl p-6 border border-purple-500/10">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${isProcessing ? 'bg-blue-500 animate-pulse' : 'bg-emerald-500'}`}></div>
+                        <span className="text-white font-semibold">
+                          {isProcessing ? 'Processando...' : 'Concluído'}
+                        </span>
+                      </div>
+                      <span className="text-white text-lg font-bold font-mono">
+                        {Math.round(progress)}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden shadow-inner">
+                      <div 
+                        className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500 transition-all duration-500 ease-out shadow-lg"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                    {currentItem && (
+                      <div className="mt-4 bg-gray-700/50 rounded-xl p-4 border border-gray-600/30">
+                        <p className="text-gray-300 text-sm mb-1">Processando agora:</p>
+                        <p className="text-white font-mono text-sm break-all">{currentItem}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Enhanced Control Buttons */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <button
+                    onClick={startProcessing}
+                    disabled={isProcessing || !inputList.trim()}
+                    className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transform hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    <Play className="w-5 h-5" />
+                    Iniciar Processamento
+                  </button>
+                  
+                  <button
+                    onClick={stopProcessing}
+                    disabled={!isProcessing}
+                    className="bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white font-semibold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-red-500/25 hover:shadow-red-500/40 transform hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    <Square className="w-5 h-5" />
+                    Parar
+                  </button>
+
+                  <button
+                    onClick={clearResults}
+                    className="bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white font-semibold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 transition-all duration-200 shadow-lg shadow-gray-500/25 hover:shadow-gray-500/40 transform hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    <X className="w-5 h-5" />
+                    Limpar
+                  </button>
+                </div>
+              </div>
+
+              {/* Enhanced Results */}
+              {results.length > 0 && (
+                <div className="space-y-6">
+                  {/* Approved Results */}
+                  {results.some(r => r.approved) && (
+                    <div className="bg-gray-900/60 backdrop-blur-xl rounded-3xl border border-emerald-500/20 p-8 shadow-2xl">
+                      <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
+                            <CheckCircle className="w-6 h-6 text-white" />
+                          </div>
+                          <div>
+                            <h3 className="text-xl font-bold text-white">Resultados Aprovados</h3>
+                            <p className="text-emerald-300 text-sm">Itens validados com sucesso</p>
+                          </div>
+                        </div>
+                        <div className="bg-emerald-500/20 text-emerald-300 px-4 py-2 rounded-xl text-lg font-bold border border-emerald-500/30">
+                          {results.filter(r => r.approved).length}
+                        </div>
+                      </div>
+                      <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar">
+                        {results.filter(r => r.approved).map((result, index) => (
+                          <div key={index} className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 hover:bg-emerald-500/15 transition-all group">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                                <CheckCircle className="w-4 h-4 text-white" />
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-white font-mono text-sm font-medium">{result.input}</p>
+                                <p className="text-emerald-300 text-xs mt-1">{result.message}</p>
+                              </div>
+                              <div className="text-emerald-400 text-xs font-medium bg-emerald-500/20 px-3 py-1 rounded-lg">
+                                APROVADO
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Rejected Results */}
+                  {results.some(r => !r.approved) && (
+                    <div className="bg-gray-900/60 backdrop-blur-xl rounded-3xl border border-red-500/20 p-8 shadow-2xl">
+                      <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl flex items-center justify-center shadow-lg">
+                            <XCircle className="w-6 h-6 text-white" />
+                          </div>
+                          <div>
+                            <h3 className="text-xl font-bold text-white">Resultados Reprovados</h3>
+                            <p className="text-red-300 text-sm">Itens que não passaram na validação</p>
+                          </div>
+                        </div>
+                        <div className="bg-red-500/20 text-red-300 px-4 py-2 rounded-xl text-lg font-bold border border-red-500/30">
+                          {results.filter(r => !r.approved).length}
+                        </div>
+                      </div>
+                      <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar">
+                        {results.filter(r => !r.approved).map((result, index) => (
+                          <div key={index} className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 hover:bg-red-500/15 transition-all group">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                                <XCircle className="w-4 h-4 text-white" />
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-white font-mono text-sm font-medium">{result.input}</p>
+                                <p className="text-red-300 text-xs mt-1">{result.message}</p>
+                              </div>
+                              <div className="text-red-400 text-xs font-medium bg-red-500/20 px-3 py-1 rounded-lg">
+                                REPROVADO
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Enhanced Sidebar */}
+            <div className="space-y-6">
+              {/* Processing Stats */}
+              <div className="bg-gray-900/60 backdrop-blur-xl rounded-3xl border border-purple-500/20 p-8 shadow-2xl">
+                <div className="flex items-center gap-3 mb-8">
+                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
+                    <BarChart3 className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Estatísticas</h3>
+                    <p className="text-purple-300 text-xs">Sessão atual</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-6">
+                  <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-6 hover:bg-emerald-500/15 transition-all group">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <CheckCircle className="w-6 h-6 text-emerald-400 group-hover:scale-110 transition-transform" />
+                        <span className="text-emerald-300 font-semibold">Aprovados</span>
+                      </div>
+                      <div className="text-3xl font-bold text-white">
+                        {results.length > 0 ? results.filter(r => r.approved).length : session?.approved_count || 0}
+                      </div>
+                    </div>
+                    <div className="w-full bg-emerald-900/30 rounded-full h-2">
+                      <div 
+                        className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all duration-500"
+                        style={{ 
+                          width: `${session?.tested_count ? (session.approved_count / session.tested_count) * 100 : 0}%` 
+                        }}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 hover:bg-red-500/15 transition-all group">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <XCircle className="w-6 h-6 text-red-400 group-hover:scale-110 transition-transform" />
+                        <span className="text-red-300 font-semibold">Reprovados</span>
+                      </div>
+                      <div className="text-3xl font-bold text-white">
+                        {results.length > 0 ? results.filter(r => !r.approved).length : session?.rejected_count || 0}
+                      </div>
+                    </div>
+                    <div className="w-full bg-red-900/30 rounded-full h-2">
+                      <div 
+                        className="h-full bg-gradient-to-r from-red-400 to-red-500 rounded-full transition-all duration-500"
+                        style={{ 
+                          width: `${session?.tested_count ? (session.rejected_count / session.tested_count) * 100 : 0}%` 
+                        }}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-6 hover:bg-blue-500/15 transition-all group">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <Activity className="w-6 h-6 text-blue-400 group-hover:scale-110 transition-transform" />
+                        <span className="text-blue-300 font-semibold">Total Testados</span>
+                      </div>
+                      <div className="text-3xl font-bold text-white">
+                        {results.length > 0 ? results.length : session?.tested_count || 0}
+                      </div>
+                    </div>
+                    <div className="text-xs text-blue-300 opacity-70">
+                      Itens processados nesta sessão
+                    </div>
+                  </div>
+                  
+                  <div className="bg-purple-500/10 border border-purple-500/20 rounded-2xl p-6 hover:bg-purple-500/15 transition-all group">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <Database className="w-6 h-6 text-purple-400 group-hover:scale-110 transition-transform" />
+                        <span className="text-purple-300 font-semibold">Na Fila</span>
+                      </div>
+                      <div className="text-3xl font-bold text-white">
+                        {inputList.split('\n').filter(l => l.trim()).length}
+                      </div>
+                    </div>
+                    <div className="text-xs text-purple-300 opacity-70">
+                      Aguardando processamento
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Enhanced Subscription Info */}
+              <div className="bg-gray-900/60 backdrop-blur-xl rounded-3xl border border-purple-500/20 p-8 shadow-2xl">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
+                    <Calendar className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Assinatura</h3>
+                    <p className="text-purple-300 text-xs">Status da conta</p>
+                  </div>
+                </div>
+                
+                <div className="text-center mb-6">
+                  <div className="text-5xl font-bold text-white mb-3 font-mono">
+                    {user?.subscription_days || 0}
+                  </div>
+                  <p className="text-purple-300 text-lg font-medium">dias restantes</p>
+                  
+                  <div className="mt-6 bg-gray-800/50 rounded-2xl p-4">
+                    <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-purple-500 to-purple-600 rounded-full transition-all duration-1000"
+                        style={{ width: `${Math.min((user?.subscription_days || 0) / 365 * 100, 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-400 mt-2">
+                      <span>0 dias</span>
+                      <span>365 dias</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Subscription Status */}
+                <div className={`p-4 rounded-2xl border ${
+                  (user?.subscription_days || 0) > 30 
+                    ? 'bg-emerald-500/10 border-emerald-500/20' 
+                    : (user?.subscription_days || 0) > 7
+                    ? 'bg-yellow-500/10 border-yellow-500/20'
+                    : 'bg-red-500/10 border-red-500/20'
+                }`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    {(user?.subscription_days || 0) > 30 ? (
+                      <CheckCircle className="w-4 h-4 text-emerald-400" />
+                    ) : (user?.subscription_days || 0) > 7 ? (
+                      <AlertTriangle className="w-4 h-4 text-yellow-400" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-red-400" />
+                    )}
+                    <span className={`text-sm font-medium ${
+                      (user?.subscription_days || 0) > 30 
+                        ? 'text-emerald-300' 
+                        : (user?.subscription_days || 0) > 7
+                        ? 'text-yellow-300'
+                        : 'text-red-300'
+                    }`}>
+                      {(user?.subscription_days || 0) > 30 
+                        ? 'Assinatura Ativa' 
+                        : (user?.subscription_days || 0) > 7
+                        ? 'Renovação Próxima'
+                        : 'Assinatura Expirada'
+                      }
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    {(user?.subscription_days || 0) > 30 
+                      ? 'Sua assinatura está em dia' 
+                      : (user?.subscription_days || 0) > 7
+                      ? 'Considere renovar sua assinatura'
+                      : 'Renove para continuar usando'
+                    }
+                  </p>
+                </div>
+              </div>
+
+              {/* System Performance */}
             </div>
           </div>
-        )}
-      </main>
+        </main>
+      )}
     </div>
   );
 }

@@ -1,4 +1,5 @@
-import { sql, isNeonConfigured } from './neon';
+import { supabase, isSupabaseConfigured } from './supabase';
+import bcrypt from 'bcryptjs';
 
 export interface User {
   id: string;
@@ -10,27 +11,6 @@ export interface User {
   is_banned: boolean;
   created_at: string;
   updated_at: string;
-}
-
-export interface SubscriptionPlan {
-  id: string;
-  name: string;
-  days: number;
-  price: number;
-  description: string;
-  is_active: boolean;
-  created_at: string;
-}
-
-export interface UserPurchase {
-  id: string;
-  user_id: string;
-  plan_id: string;
-  days_added: number;
-  amount_paid: number;
-  payment_method: string;
-  created_at: string;
-  plan_name?: string;
 }
 
 export interface LoginAttempt {
@@ -61,282 +41,522 @@ export interface ProcessingSession {
   updated_at: string;
 }
 
-// User functions
-export async function getUserByEmail(email: string): Promise<User | null> {
-  if (!isNeonConfigured()) {
-    console.warn('Neon not configured, returning null');
-    return null;
-  }
-
-  try {
-    const result = await sql`
-      SELECT * FROM users WHERE email = ${email} LIMIT 1
-    `;
-    return result[0] as User || null;
-  } catch (error) {
-    console.error('Error getting user by email:', error);
-    return null;
-  }
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  days: number;
+  price: number;
+  description: string;
+  is_active: boolean;
+  created_at: string;
 }
 
-export async function getAllUsers(): Promise<User[]> {
-  if (!isNeonConfigured()) {
-    return [];
-  }
-
-  try {
-    const result = await sql`
-      SELECT * FROM users ORDER BY created_at DESC
-    `;
-    return result as User[];
-  } catch (error) {
-    console.error('Error getting all users:', error);
-    return [];
-  }
+export interface UserPurchase {
+  id: string;
+  user_id: string;
+  plan_id: string;
+  days_added: number;
+  amount_paid: number;
+  payment_method: string;
+  created_at: string;
+  plan?: SubscriptionPlan;
 }
 
-export async function banUser(userId: string): Promise<boolean> {
-  if (!isNeonConfigured()) {
-    return false;
+// User operations
+export const getUserByEmail = async (email: string): Promise<User | null> => {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
   }
+
+  console.log('getUserByEmail - Searching for email:', email);
 
   try {
-    await sql`
-      UPDATE users 
-      SET is_banned = true, updated_at = now() 
-      WHERE id = ${userId}
-    `;
-    return true;
-  } catch (error) {
-    console.error('Error banning user:', error);
-    return false;
-  }
-}
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .maybeSingle();
 
-export async function unbanUser(userId: string): Promise<boolean> {
-  if (!isNeonConfigured()) {
-    return false;
-  }
+    console.log('getUserByEmail - Supabase response:', { data, error });
 
-  try {
-    await sql`
-      UPDATE users 
-      SET is_banned = false, updated_at = now() 
-      WHERE id = ${userId}
-    `;
-    return true;
-  } catch (error) {
-    console.error('Error unbanning user:', error);
-    return false;
-  }
-}
-
-export async function updateUserSubscription(email: string, additionalDays: number): Promise<boolean> {
-  if (!isNeonConfigured()) {
-    return false;
-  }
-
-  try {
-    await sql`
-      UPDATE users 
-      SET subscription_days = subscription_days + ${additionalDays}, updated_at = now() 
-      WHERE email = ${email}
-    `;
-    return true;
-  } catch (error) {
-    console.error('Error updating user subscription:', error);
-    return false;
-  }
-}
-
-// Subscription plan functions
-export async function getAllSubscriptionPlans(): Promise<SubscriptionPlan[]> {
-  if (!isNeonConfigured()) {
-    return [];
-  }
-
-  try {
-    const result = await sql`
-      SELECT * FROM subscription_plans ORDER BY created_at DESC
-    `;
-    return result as SubscriptionPlan[];
-  } catch (error) {
-    console.error('Error getting subscription plans:', error);
-    return [];
-  }
-}
-
-export async function createSubscriptionPlan(
-  name: string, 
-  days: number, 
-  price: number, 
-  description: string = ''
-): Promise<SubscriptionPlan | null> {
-  if (!isNeonConfigured()) {
-    return null;
-  }
-
-  try {
-    const result = await sql`
-      INSERT INTO subscription_plans (name, days, price, description)
-      VALUES (${name}, ${days}, ${price}, ${description})
-      RETURNING *
-    `;
-    return result[0] as SubscriptionPlan;
-  } catch (error) {
-    console.error('Error creating subscription plan:', error);
-    return null;
-  }
-}
-
-export async function updateSubscriptionPlan(
-  planId: string, 
-  updates: Partial<SubscriptionPlan>
-): Promise<boolean> {
-  if (!isNeonConfigured()) {
-    return false;
-  }
-
-  try {
-    const setClause = Object.entries(updates)
-      .map(([key, value]) => `${key} = ${typeof value === 'string' ? `'${value}'` : value}`)
-      .join(', ');
-
-    if (updates.is_active !== undefined) {
-      await sql`
-        UPDATE subscription_plans 
-        SET is_active = ${updates.is_active}
-        WHERE id = ${planId}
-      `;
+    if (error) {
+      console.error('Error fetching user by email:', error);
+      throw error;
     }
 
-    if (updates.name) {
-      await sql`
-        UPDATE subscription_plans 
-        SET name = ${updates.name}
-        WHERE id = ${planId}
-      `;
-    }
-
-    if (updates.days !== undefined) {
-      await sql`
-        UPDATE subscription_plans 
-        SET days = ${updates.days}
-        WHERE id = ${planId}
-      `;
-    }
-
-    if (updates.price !== undefined) {
-      await sql`
-        UPDATE subscription_plans 
-        SET price = ${updates.price}
-        WHERE id = ${planId}
-      `;
-    }
-
-    if (updates.description) {
-      await sql`
-        UPDATE subscription_plans 
-        SET description = ${updates.description}
-        WHERE id = ${planId}
-      `;
-    }
-
-    return true;
+    console.log('getUserByEmail - Found user:', data ? 'Yes' : 'No');
+    return data;
   } catch (error) {
-    console.error('Error updating subscription plan:', error);
-    return false;
+    console.error('Error in getUserByEmail:', error);
+    throw error;
   }
-}
+};
 
-export async function deleteSubscriptionPlan(planId: string): Promise<boolean> {
-  if (!isNeonConfigured()) {
-    return false;
+export const getUsers = async (): Promise<User[]> => {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
   }
 
   try {
-    await sql`
-      DELETE FROM subscription_plans WHERE id = ${planId}
-    `;
-    return true;
-  } catch (error) {
-    console.error('Error deleting subscription plan:', error);
-    return false;
-  }
-}
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-// User purchase functions
-export async function getAllUserPurchases(): Promise<UserPurchase[]> {
-  if (!isNeonConfigured()) {
-    return [];
+    if (error) {
+      console.error('Error fetching users:', error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in getUsers:', error);
+    throw error;
+  }
+};
+
+export const createUser = async (userData: {
+  email: string;
+  password: string;
+  role?: 'user' | 'admin';
+  subscription_days?: number;
+  allowed_ips?: string[];
+}): Promise<User> => {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
   }
 
   try {
-    const result = await sql`
-      SELECT 
-        up.*,
-        sp.name as plan_name
-      FROM user_purchases up
-      LEFT JOIN subscription_plans sp ON up.plan_id = sp.id
-      ORDER BY up.created_at DESC
-    `;
-    return result as UserPurchase[];
-  } catch (error) {
-    console.error('Error getting user purchases:', error);
-    return [];
-  }
-}
+    console.log('Creating user with password:', userData.password);
+    
+    // Save password as plain text as requested
+    const plainPassword = userData.password;
+    console.log('Using plain text password:', plainPassword);
 
-export async function createUserPurchase(
-  userEmail: string,
-  planId: string,
-  daysAdded: number,
-  amountPaid: number,
-  paymentMethod: string = 'manual'
-): Promise<UserPurchase | null> {
-  if (!isNeonConfigured()) {
+    const { data, error } = await supabase
+      .from('users')
+      .insert({
+        email: userData.email,
+        password_hash: plainPassword,
+        role: userData.role || 'user',
+        subscription_days: userData.subscription_days || 0,
+        allowed_ips: userData.allowed_ips || []
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating user:', error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in createUser:', error);
+    throw error;
+  }
+};
+
+export const updateUser = async (userId: string, updates: Partial<User>): Promise<User | null> => {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
+  }
+
+  try {
+    console.log('Updating user:', userId, 'with updates:', updates);
+    
+    const { data, error } = await supabase
+      .from('users')
+      .update(updates)
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating user:', error);
+      throw error;
+    }
+
+    console.log('User updated successfully:', data);
+    return data;
+  } catch (error) {
+    console.error('Error in updateUser:', error);
+    throw error;
+  }
+};
+
+export const deleteUser = async (userId: string): Promise<void> => {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
+  }
+
+  try {
+    console.log('Deleting user from Supabase:', userId);
+    
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', userId);
+
+    if (error) {
+      console.error('Error deleting user:', error);
+      throw error;
+    }
+    
+    console.log('User deleted successfully from Supabase');
+  } catch (error) {
+    console.error('Error in deleteUser:', error);
+    throw error;
+  }
+};
+
+// Processing sessions
+export const getUserSession = async (userId: string): Promise<ProcessingSession | null> => {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('processing_sessions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      console.error('Error fetching user session:', error);
+      throw error;
+    }
+
+    return data && data.length > 0 ? data[0] : null;
+  } catch (error) {
+    console.error('Error in getUserSession:', error);
+    throw error;
+  }
+};
+
+export const createSession = async (userId: string): Promise<ProcessingSession> => {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('processing_sessions')
+      .insert({
+        user_id: userId,
+        approved_count: 0,
+        rejected_count: 0,
+        loaded_count: 0,
+        tested_count: 0,
+        is_active: false
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating session:', error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in createSession:', error);
+    throw error;
+  }
+};
+
+export const updateSession = async (sessionId: string, updates: Partial<ProcessingSession>): Promise<ProcessingSession> => {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('processing_sessions')
+      .update(updates)
+      .eq('id', sessionId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating session:', error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in updateSession:', error);
+    throw error;
+  }
+};
+
+// Subscription plans
+export const getSubscriptionPlans = async (): Promise<SubscriptionPlan[]> => {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('subscription_plans')
+      .select('*')
+      .eq('is_active', true)
+      .order('price', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching subscription plans:', error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in getSubscriptionPlans:', error);
+    throw error;
+  }
+};
+
+export const createSubscriptionPlan = async (plan: {
+  name: string;
+  days: number;
+  price: number;
+  description?: string;
+}): Promise<SubscriptionPlan> => {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('subscription_plans')
+      .insert({
+        name: plan.name,
+        days: plan.days,
+        price: plan.price,
+        description: plan.description || '',
+        is_active: true
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating subscription plan:', error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in createSubscriptionPlan:', error);
+    throw error;
+  }
+};
+
+export const updateSubscriptionPlan = async (planId: string, updates: Partial<SubscriptionPlan>): Promise<SubscriptionPlan | null> => {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('subscription_plans')
+      .update(updates)
+      .eq('id', planId)
+      .select();
+
+    if (error) {
+      console.error('Error updating subscription plan:', error);
+      throw error;
+    }
+
+    // Check if any rows were returned
+    if (data && data.length > 0) {
+      return data[0];
+    }
+    
     return null;
+  } catch (error) {
+    console.error('Error in updateSubscriptionPlan:', error);
+    throw error;
+  }
+};
+
+// User purchases
+export const getUserPurchases = async (userId: string): Promise<UserPurchase[]> => {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
   }
 
   try {
-    // Get user ID from email
-    const user = await getUserByEmail(userEmail);
-    if (!user) {
-      throw new Error('User not found');
+    const { data, error } = await supabase
+      .from('user_purchases')
+      .select(`
+        *,
+        plan:subscription_plans(*)
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching user purchases:', error);
+      throw error;
     }
 
-    const result = await sql`
-      INSERT INTO user_purchases (user_id, plan_id, days_added, amount_paid, payment_method)
-      VALUES (${user.id}, ${planId}, ${daysAdded}, ${amountPaid}, ${paymentMethod})
-      RETURNING *
-    `;
-    return result[0] as UserPurchase;
+    return data || [];
   } catch (error) {
-    console.error('Error creating user purchase:', error);
-    return null;
+    console.error('Error in getUserPurchases:', error);
+    throw error;
   }
-}
+};
 
-// Login attempt functions
-export async function logLoginAttempt(
-  ipAddress: string, 
-  userEmail: string, 
-  success: boolean
-): Promise<void> {
-  if (!isNeonConfigured()) {
-    console.warn('Neon not configured, skipping login attempt log');
+export const createPurchase = async (purchase: {
+  user_id: string;
+  plan_id: string;
+  days_added: number;
+  amount_paid: number;
+  payment_method?: string;
+}): Promise<UserPurchase> => {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('user_purchases')
+      .insert({
+        user_id: purchase.user_id,
+        plan_id: purchase.plan_id,
+        days_added: purchase.days_added,
+        amount_paid: purchase.amount_paid,
+        payment_method: purchase.payment_method || 'manual'
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating purchase:', error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in createPurchase:', error);
+    throw error;
+  }
+};
+
+// Analytics
+export const getSystemStats = async () => {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
+  }
+
+  try {
+    // Get user stats
+    const { data: users, error: usersError } = await supabase
+      .from('users')
+      .select('role, is_banned, subscription_days');
+
+    if (usersError) throw usersError;
+
+    // Get processing stats
+    const { data: sessions, error: sessionsError } = await supabase
+      .from('processing_sessions')
+      .select('approved_count, rejected_count, tested_count');
+
+    if (sessionsError) throw sessionsError;
+
+    // Get purchase stats
+    const { data: purchases, error: purchasesError } = await supabase
+      .from('user_purchases')
+      .select('amount_paid, created_at');
+
+    if (purchasesError) throw purchasesError;
+
+    const totalUsers = users?.length || 0;
+    const activeUsers = users?.filter(u => !u.is_banned && u.subscription_days > 0).length || 0;
+    const bannedUsers = users?.filter(u => u.is_banned).length || 0;
+    const adminUsers = users?.filter(u => u.role === 'admin').length || 0;
+
+    const totalProcessed = sessions?.reduce((sum, s) => sum + s.tested_count, 0) || 0;
+    const totalApproved = sessions?.reduce((sum, s) => sum + s.approved_count, 0) || 0;
+
+    const totalRevenue = purchases?.reduce((sum, p) => sum + Number(p.amount_paid), 0) || 0;
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const monthlyRevenue = purchases?.filter(p => new Date(p.created_at) > thirtyDaysAgo)
+      .reduce((sum, p) => sum + Number(p.amount_paid), 0) || 0;
+
+    return {
+      totalUsers,
+      activeUsers,
+      bannedUsers,
+      adminUsers,
+      totalProcessed,
+      totalApproved,
+      totalRevenue,
+      monthlyRevenue
+    };
+  } catch (error) {
+    console.error('Error in getSystemStats:', error);
+    throw error;
+  }
+};
+
+// Login attempt logging
+export const logLoginAttempt = async (ipAddress: string, userEmail: string | null, success: boolean): Promise<void> => {
+  if (!isSupabaseConfigured()) {
+    console.warn('Supabase not configured, skipping login attempt logging');
     return;
   }
 
   try {
-    await sql`
-      INSERT INTO login_attempts (ip_address, user_email, success)
-      VALUES (${ipAddress}, ${userEmail}, ${success})
-    `;
-  } catch (error) {
-    console.error('Error logging login attempt:', error);
-  }
-}
+    const { error } = await supabase
+      .from('login_attempts')
+      .insert({
+        ip_address: ipAddress,
+        user_email: userEmail,
+        success
+      });
 
-// Alias functions for compatibility
-export const getUsers = getAllUsers;
+    if (error) {
+      console.error('Error logging login attempt:', error);
+    }
+  } catch (error) {
+    console.error('Error in logLoginAttempt:', error);
+  }
+};
+
+// Check if IP is banned
+export const isIPBanned = async (ipAddress: string): Promise<boolean> => {
+  if (!isSupabaseConfigured()) {
+    return false;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('banned_ips')
+      .select('banned_until')
+      .eq('ip_address', ipAddress)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error checking banned IP:', error);
+      return false;
+    }
+
+    if (!data) return false;
+
+    // Check if ban is still active
+    if (data.banned_until) {
+      const banExpiry = new Date(data.banned_until);
+      const now = new Date();
+      return now < banExpiry;
+    }
+
+    // Permanent ban if banned_until is null
+    return true;
+  } catch (error) {
+    console.error('Error in isIPBanned:', error);
+    return false;
+  }
+};
