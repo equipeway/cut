@@ -132,7 +132,15 @@ export const deleteUser = async (userId: string): Promise<void> => {
 
 // Authentication
 export const verifyPassword = async (password: string, hash: string): Promise<boolean> => {
-  return bcrypt.compare(password, hash);
+  try {
+    console.log('Verifying password:', { password, hash: hash.substring(0, 10) + '...' });
+    const result = await bcrypt.compare(password, hash);
+    console.log('Password verification result:', result);
+    return result;
+  } catch (error) {
+    console.error('Password verification error:', error);
+    return false;
+  }
 };
 
 // Login attempts
