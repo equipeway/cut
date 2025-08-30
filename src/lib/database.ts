@@ -352,7 +352,7 @@ export const createSubscriptionPlan = async (plan: {
   }
 };
 
-export const updateSubscriptionPlan = async (planId: string, updates: Partial<SubscriptionPlan>): Promise<SubscriptionPlan> => {
+export const updateSubscriptionPlan = async (planId: string, updates: Partial<SubscriptionPlan>): Promise<SubscriptionPlan | null> => {
   if (!isSupabaseConfigured()) {
     throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
   }
@@ -363,7 +363,7 @@ export const updateSubscriptionPlan = async (planId: string, updates: Partial<Su
       .update(updates)
       .eq('id', planId)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Error updating subscription plan:', error);
