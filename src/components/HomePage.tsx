@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, LogIn, Crown, Clock, Check, ExternalLink, Zap, Users, ArrowRight, Star } from 'lucide-react';
+import { Shield, LogIn, Crown, Clock, Check, ExternalLink, Zap, Users, ArrowRight, Star, TrendingUp, Activity, Globe } from 'lucide-react';
 import { getSubscriptionPlans, SubscriptionPlan } from '../lib/database';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { mockPlans } from '../data/mockPlans';
@@ -70,9 +70,6 @@ function PlanCard({ plan, isPopular = false }: PlanCardProps) {
         <div className="flex items-center justify-center gap-2 text-purple-300 text-sm font-medium">
           <Clock className="w-3 h-3" />
           {plan.days} dias
-        </div>
-        <div className="mt-3 text-xs text-gray-400 bg-gray-800/50 px-3 py-2 rounded-lg border border-gray-700/50">
-          R$ {(plan.price / plan.days).toFixed(2)} por dia
         </div>
       </div>
 
@@ -172,48 +169,6 @@ export function HomePage() {
 
       {/* Hero */}
       <div className="max-w-6xl mx-auto px-6 py-20">
-        {/* Info Boxes */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
-          <div className="bg-gray-900/50 backdrop-blur-xl rounded-2xl border border-blue-500/20 p-6 hover:scale-105 transition-all duration-300 group">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                <TrendingUp className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-white">99.9%</div>
-                <div className="text-blue-300 text-sm font-medium">Uptime Garantido</div>
-              </div>
-            </div>
-            <p className="text-gray-400 text-sm">Sistema sempre disponível para suas operações</p>
-          </div>
-
-          <div className="bg-gray-900/50 backdrop-blur-xl rounded-2xl border border-emerald-500/20 p-6 hover:scale-105 transition-all duration-300 group">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                <Activity className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-white">10k+</div>
-                <div className="text-emerald-300 text-sm font-medium">Processamentos/min</div>
-              </div>
-            </div>
-            <p className="text-gray-400 text-sm">Alta velocidade de processamento garantida</p>
-          </div>
-
-          <div className="bg-gray-900/50 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:scale-105 transition-all duration-300 group">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                <Globe className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-white">5k+</div>
-                <div className="text-purple-300 text-sm font-medium">Clientes Ativos</div>
-              </div>
-            </div>
-            <p className="text-gray-400 text-sm">Comunidade global de usuários satisfeitos</p>
-          </div>
-        </div>
-
         <div className="text-center mb-16">
           <h2 className="text-6xl font-bold mb-8 bg-gradient-to-r from-white via-purple-200 to-purple-400 bg-clip-text text-transparent">
             Plataforma de
