@@ -1,287 +1,154 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Shield, LogIn, Crown, Clock, Check, ExternalLink, Zap, Users, ArrowRight, Star, Activity, Package, AlertTriangle } from 'lucide-react';
-import { getSubscriptionPlans, SubscriptionPlan } from '../lib/database';
-import { isSupabaseConfigured } from '../lib/supabase';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { getUserByEmail, logLoginAttempt } from '../lib/database';
+import { isNeonConfigured } from '../lib/neon';
+import bcrypt from 'bcryptjs';
 
-interface PlanCardProps {
-  plan: SubscriptionPlan;
-  isPopular?: boolean;
+interface User {
+  id: string;
+  email: string;
+  role: 'user' | 'admin';
+  subscription_days: number;
+  is_banned: boolean;
 }
 
-function getPlanIcon(planName: string) {
-  switch (planName.toLowerCase()) {
-    case 'plano básico':
-      return <Shield className="w-6 h-6" />;
-    case 'plano standard':
-      return <Activity className="w-6 h-6" />;
-    case 'plano premium':
-      return <Zap className="w-6 h-6" />;
-    case 'plano ultimate':
-      return <Users className="w-6 h-6" />;
-    default:
-      return <Shield className="w-6 h-6" />;
-  }
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  login: (email: string, password: string, ipAddress?: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => void;
+  isAdmin: boolean;
 }
 
-function PlanCard({ plan, isPopular = false }: PlanCardProps) {
-  const features = [
-    'Processamento seguro',
-    'Suporte técnico',
-    'Dashboard completo',
-    'Relatórios detalhados',
-    'API avançada',
-    'Monitoramento 24/7'
-  ];
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-  const handlePurchase = () => {
-    window.open('https://t.me/monetizei', '_blank');
-  };
-
-  return (
-    <div className={`relative bg-gray-900/80 backdrop-blur-xl rounded-2xl border p-8 hover:scale-105 transition-all duration-300 group shadow-xl ${
-      isPopular ? 'border-purple-500' : 'border-gray-800'
-    }`}>
-      {isPopular && (
-        <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-          <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg flex items-center gap-1">
-            <Star className="w-3 h-3" />
-            Mais Popular
-          </div>
-        </div>
-      )}
-
-      <div className="text-center mb-6">
-        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg group-hover:scale-110 transition-transform ${
-          isPopular ? 'bg-purple-500 text-white' : 'bg-gray-800 text-purple-400'
-        }`}>
-          {getPlanIcon(plan.name)}
-        </div>
-        <h3 className="text-2xl font-bold text-white mb-2">{plan.name}</h3>
-        <p className="text-gray-300 text-sm leading-relaxed">{plan.description}</p>
-      </div>
-
-      <div className="text-center mb-6">
-        <div className="text-4xl font-bold text-white mb-2">
-          R$ {plan.price.toFixed(2)}
-        </div>
-        <div className="flex items-center justify-center gap-2 text-purple-300 text-sm font-medium">
-          <Clock className="w-3 h-3" />
-          {plan.days} dias
-        </div>
-      </div>
-
-      <div className="space-y-3 mb-8">
-        {features.map((feature, index) => (
-          <div key={index} className="flex items-center gap-3 text-gray-300 text-sm p-2 rounded-lg hover:bg-gray-800/30 transition-all">
-            <div className="w-5 h-5 bg-purple-500/20 rounded-lg flex items-center justify-center">
-              <Check className="w-3 h-3 text-purple-400" />
-            </div>
-            <span className="font-medium">{feature}</span>
-          </div>
-        ))}
-      </div>
-
-      <button
-        onClick={handlePurchase}
-        className={`w-full py-4 px-6 rounded-xl font-bold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:scale-105 ${
-          isPopular
-            ? 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-purple-500/25'
-            : 'bg-gray-800 hover:bg-gray-700 text-white border border-gray-700 shadow-gray-500/25'
-        }`}
-      >
-        Comprar
-        <ExternalLink className="w-4 h-4" />
-      </button>
-    </div>
-  );
-}
-
-export function HomePage() {
-  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadPlans();
+    const initAuth = async () => {
+      try {
+        const savedUser = localStorage.getItem('terramail_user');
+        if (savedUser && isNeonConfigured()) {
+          const userData = JSON.parse(savedUser);
+          
+          // Validate user still exists in Neon
+          // Validate user still exists in Neon
+          const dbUser = await getUserByEmail(userData.email);
+          if (dbUser && dbUser.id === userData.id) {
+            setUser({
+              id: dbUser.id,
+              email: dbUser.email,
+              role: dbUser.role,
+              subscription_days: dbUser.subscription_days,
+              is_banned: dbUser.is_banned
+            });
+          } else {
+            localStorage.removeItem('terramail_user');
+          }
+        }
+      } catch (error) {
+        console.error('Error validating saved user:', error);
+        localStorage.removeItem('terramail_user');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initAuth();
   }, []);
 
-  const loadPlans = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  const login = async (email: string, password: string, ipAddress: string = '127.0.0.1') => {
+    if (!isNeonConfigured()) {
+      return { 
+        success: false, 
+        error: 'Sistema não configurado. Por favor, configure o Neon Database para usar esta funcionalidade.' 
+      };
+    }
 
-      if (isSupabaseConfigured()) {
-        const plansData = await getSubscriptionPlans();
-        setPlans(plansData);
-      } else {
-        setError('Sistema não configurado. Por favor, conecte ao Supabase.');
+    console.log('Login attempt for email:', email);
+
+    try {
+      const foundUser = await getUserByEmail(email);
+      
+      console.log('User found in database:', foundUser ? 'Yes' : 'No');
+      
+      if (!foundUser) {
+        await logLoginAttempt(ipAddress, email, false);
+        console.log('Login failed: Email not found');
+        return { success: false, error: 'Email não encontrado' };
       }
+
+      console.log('Password hash from database:', foundUser.password_hash);
+      console.log('Password provided:', password);
+      console.log('Hash starts with $2a$ or $2b$:', foundUser.password_hash.startsWith('$2a$') || foundUser.password_hash.startsWith('$2b$'));
+      
+      console.log('Comparing password...');
+      let passwordMatch = false;
+      
+      try {
+        // Since passwords are now stored as plain text, use direct comparison
+        passwordMatch = password === foundUser.password_hash;
+        console.log('Direct comparison result:', passwordMatch);
+      } catch (error) {
+        console.error('Password comparison error:', error);
+        passwordMatch = false;
+      }
+      
+      console.log('Password match:', passwordMatch);
+      
+      if (!passwordMatch) {
+        await logLoginAttempt(ipAddress, email, false);
+        return { success: false, error: 'Senha incorreta' };
+      }
+
+      if (foundUser.is_banned) {
+        await logLoginAttempt(ipAddress, email, false);
+        return { success: false, error: 'Conta banida' };
+      }
+
+      // Login successful
+      console.log('Login successful for user:', foundUser.email);
+      const userData: User = {
+        id: foundUser.id,
+        email: foundUser.email,
+        role: foundUser.role,
+        subscription_days: foundUser.subscription_days,
+        is_banned: foundUser.is_banned
+      };
+
+      localStorage.setItem('terramail_user', JSON.stringify(userData));
+      setUser(userData);
+      await logLoginAttempt(ipAddress, email, true);
+
+      return { success: true };
     } catch (error) {
-      console.error('Error loading plans:', error);
-      setError('Erro ao carregar planos. Tente novamente.');
-    } finally {
-      setLoading(false);
+      console.error('Login error:', error);
+      return { 
+        success: false, 
+        error: 'Erro interno do sistema. Tente novamente.' 
+      };
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto mb-4"></div>
-          <p className="text-white">Carregando planos...</p>
-        </div>
-      </div>
-    );
-  }
+  const logout = () => {
+    localStorage.removeItem('terramail_user');
+    setUser(null);
+  };
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-purple-900 text-white">
-        <header className="bg-gray-900/50 backdrop-blur-xl border-b border-purple-500/20 sticky top-0 z-50">
-          <div className="max-w-6xl mx-auto px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl flex items-center justify-center shadow-lg">
-                  <Shield className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold">TerrraMail Pro</h1>
-                  <p className="text-purple-300 text-xs">Processamento Avançado</p>
-                </div>
-              </div>
-              <Link
-                to="/login"
-                className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-6 py-3 rounded-xl font-medium transition-all flex items-center gap-2 shadow-lg shadow-purple-500/25 hover:scale-105"
-              >
-                <LogIn className="w-4 h-4" />
-                Login
-              </Link>
-            </div>
-          </div>
-        </header>
-        
-        <div className="max-w-6xl mx-auto px-6 py-20">
-          <div className="text-center">
-            <div className="w-20 h-20 bg-red-500/20 rounded-3xl flex items-center justify-center mx-auto mb-8">
-              <AlertTriangle className="w-10 h-10 text-red-400" />
-            </div>
-            <h2 className="text-3xl font-bold text-white mb-4">Sistema Não Configurado</h2>
-            <p className="text-gray-300 text-lg mb-8">{error}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-8 py-4 rounded-2xl font-bold transition-all shadow-lg shadow-purple-500/25 hover:scale-105"
-            >
-              Tentar Novamente
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const isAdmin = user?.role === 'admin';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-purple-900 text-white">
-      {/* Header */}
-      <header className="bg-gray-900/50 backdrop-blur-xl border-b border-purple-500/20 sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl flex items-center justify-center shadow-lg">
-                <Shield className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold">TerrraMail Pro</h1>
-                <p className="text-purple-300 text-xs">Processamento Avançado</p>
-              </div>
-            </div>
-            <Link
-              to="/login"
-              className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-6 py-3 rounded-xl font-medium transition-all flex items-center gap-2 shadow-lg shadow-purple-500/25 hover:scale-105"
-            >
-              <LogIn className="w-4 h-4" />
-              Login
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      {/* Hero */}
-      <div className="max-w-6xl mx-auto px-6 py-20">
-        <div className="text-center mb-16">
-          <h2 className="text-6xl font-bold mb-8 bg-gradient-to-r from-white via-purple-200 to-purple-400 bg-clip-text text-transparent">
-            Plataforma de
-            <br />
-            <span className="text-purple-400">Processamento Avançado</span>
-          </h2>
-          <p className="text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
-            Tecnologia de ponta para processamento seguro, rápido e confiável com monitoramento em tempo real
-          </p>
-        </div>
-
-        {/* Plans */}
-        <div className="mb-20">
-          <div className="text-center mb-12">
-            <h3 className="text-4xl font-bold mb-6">Nossos Planos</h3>
-            <p className="text-gray-300 text-lg">Escolha o plano ideal para suas necessidades</p>
-          </div>
-          
-          {plans.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {plans.map((plan, index) => (
-                <PlanCard
-                  key={plan.id}
-                  plan={plan}
-                  isPopular={index === 1}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Package className="w-8 h-8 text-gray-500" />
-              </div>
-              <p className="text-gray-400 font-medium">Nenhum plano disponível</p>
-              <p className="text-gray-500 text-sm">Configure o Supabase para ver os planos</p>
-            </div>
-          )}
-        </div>
-
-        {/* CTA */}
-        <div className="text-center bg-gray-900/60 backdrop-blur-xl rounded-3xl border border-purple-500/20 p-16 shadow-2xl">
-          <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-purple-700 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-lg">
-            <Shield className="w-10 h-10 text-white" />
-          </div>
-          <h4 className="text-3xl font-bold mb-4 text-white">Já tem uma conta?</h4>
-          <p className="text-gray-300 mb-10 text-lg">Acesse sua plataforma de processamento agora</p>
-          <Link
-            to="/login"
-            className="inline-flex items-center gap-3 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-8 py-4 rounded-2xl font-bold transition-all shadow-lg shadow-purple-500/25 hover:scale-105"
-          >
-            <LogIn className="w-5 h-5" />
-            Acessar Plataforma
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <footer className="bg-gray-900/30 backdrop-blur-xl border-t border-purple-500/20">
-        <div className="max-w-6xl mx-auto px-6 py-8">
-          <div className="text-center">
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <div className="w-6 h-6 bg-purple-500 rounded-lg flex items-center justify-center">
-                <Shield className="w-3 h-3 text-white" />
-              </div>
-              <span className="text-white font-semibold">TerrraMail Pro</span>
-            </div>
-            <div className="text-gray-400 text-sm">
-              © 2025 TerrraMail Pro. Todos os direitos reservados.
-            </div>
-          </div>
-        </div>
-      </footer>
-    </div>
+    <AuthContext.Provider value={{ user, loading, login, logout, isAdmin }}>
+      {children}
+    </AuthContext.Provider>
   );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 }
