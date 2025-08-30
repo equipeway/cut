@@ -1,95 +1,98 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { 
-  User, 
-  getUserByEmail, 
-  addLoginAttempt, 
-  getRecentFailedAttempts, 
-  isIPBanned, 
-  banIP
-} from '../lib/database';
+
+interface User {
+  id: string;
+  email: string;
+  role: 'user' | 'admin';
+  subscription_days: number;
+  is_banned: boolean;
+}
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string, ipAddress: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   isAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Usuários hardcoded para funcionar imediatamente
+const DEMO_USERS = [
+  {
+    id: '1',
+    email: 'admin@terramail.com',
+    password: 'admin123',
+    role: 'admin' as const,
+    subscription_days: 365,
+    is_banned: false
+  },
+  {
+    id: '2',
+    email: 'user@terramail.com',
+    password: 'user123',
+    role: 'user' as const,
+    subscription_days: 30,
+    is_banned: false
+  }
+];
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('terramail_current_user');
+    const savedUser = localStorage.getItem('terramail_user');
     if (savedUser) {
       try {
-        const userData = JSON.parse(savedUser);
-        if (!userData.is_banned) {
-          setUser(userData);
-        } else {
-          localStorage.removeItem('terramail_current_user');
-        }
+        setUser(JSON.parse(savedUser));
       } catch (error) {
-        localStorage.removeItem('terramail_current_user');
+        localStorage.removeItem('terramail_user');
       }
     }
     setLoading(false);
   }, []);
 
-  const login = async (email: string, password: string, ipAddress: string) => {
-    try {
-      // Get user
-      const userData = await getUserByEmail(email);
-      console.log('User found:', userData ? 'Yes' : 'No');
-      
-      if (!userData) {
-        await addLoginAttempt({
-          ip_address: ipAddress,
-          user_email: email,
-          success: false
-        });
-        return { success: false, error: 'Email ou senha incorretos' };
-      }
-
-      if (userData.is_banned) {
-        return { success: false, error: 'Conta banida' };
-      }
-
-      if (password !== userData.password_hash) {
-        await addLoginAttempt({
-          ip_address: ipAddress,
-          user_email: email,
-          success: false
-        });
-        return { success: false, error: 'Email ou senha incorretos' };
-      }
-
-      // Success
-      await addLoginAttempt({
-        ip_address: ipAddress,
-        user_email: email,
-        success: true,
-        match: password === userData.password_hash,
-        providedLength: password.length,
-        storedLength: userData.password_hash.length
-      });
-
-      localStorage.setItem('terramail_current_user', JSON.stringify(userData));
-      setUser(userData);
-      console.log('Login successful');
-
-      return { success: true };
-    } catch (error) {
-      console.error('Login error:', error);
-      return { success: false, error: 'Erro interno do servidor' };
+  const login = async (email: string, password: string) => {
+    console.log('Tentando login com:', { email, password });
+    
+    // Buscar usuário nos dados hardcoded
+    const foundUser = DEMO_USERS.find(u => u.email === email);
+    
+    if (!foundUser) {
+      console.log('Usuário não encontrado');
+      return { success: false, error: 'Email não encontrado' };
     }
+
+    if (foundUser.password !== password) {
+      console.log('Senha incorreta');
+      return { success: false, error: 'Senha incorreta' };
+    }
+
+    if (foundUser.is_banned) {
+      console.log('Usuário banido');
+      return { success: false, error: 'Conta banida' };
+    }
+
+    // Login bem-sucedido
+    const userData: User = {
+      id: foundUser.id,
+      email: foundUser.email,
+      role: foundUser.role,
+      subscription_days: foundUser.subscription_days,
+      is_banned: foundUser.is_banned
+    };
+
+    localStorage.setItem('terramail_user', JSON.stringify(userData));
+    setUser(userData);
+    console.log('Login realizado com sucesso');
+
+    return { success: true };
   };
 
   const logout = () => {
-    localStorage.removeItem('terramail_current_user');
+    localStorage.removeItem('terramail_user');
     setUser(null);
   };
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useIPAddress } from '../hooks/useIPAddress';
 import { Lock, Mail, AlertCircle, Shield } from 'lucide-react';
 
 export function Login() {
@@ -9,19 +9,23 @@ export function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
-  const { ipAddress, loading: ipLoading } = useIPAddress();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (ipLoading) return;
-
     setLoading(true);
     setError('');
 
-    const result = await login(email, password, ipAddress);
+    console.log('Iniciando login...');
     
-    if (!result.success) {
-      setError(result.error || 'Falha no login');
+    const result = await login(email, password);
+    
+    if (result.success) {
+      console.log('Login bem-sucedido, redirecionando...');
+      navigate('/dashboard');
+    } else {
+      console.log('Erro no login:', result.error);
+      setError(result.error || 'Erro no login');
     }
     
     setLoading(false);
@@ -86,7 +90,7 @@ export function Login() {
 
             <button
               type="submit"
-              disabled={loading || ipLoading}
+              disabled={loading}
               className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 transform hover:scale-[1.02] active:scale-[0.98]"
             >
               {loading ? (
@@ -100,20 +104,21 @@ export function Login() {
             </button>
           </form>
 
-          {/* Footer */}
-          <div className="mt-8 pt-6 border-t border-purple-500/20 text-center">
-            <div className="mb-4 p-3 bg-gray-800/50 rounded-lg">
-              <p className="text-gray-400 text-xs mb-2">Para teste:</p>
-              <p className="text-purple-300 text-xs">admin@terramail.com / admin123</p>
-              <p className="text-blue-300 text-xs">user@terramail.com / user123</p>
+          {/* Credenciais para teste */}
+          <div className="mt-8 pt-6 border-t border-purple-500/20">
+            <div className="bg-gray-800/50 rounded-lg p-4">
+              <p className="text-gray-400 text-xs mb-3 text-center">Credenciais de Teste:</p>
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-purple-300">Admin:</span>
+                  <span className="text-white font-mono">admin@terramail.com / admin123</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-blue-300">User:</span>
+                  <span className="text-white font-mono">user@terramail.com / user123</span>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center justify-center gap-2 text-purple-300 text-xs mb-2">
-              <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-              IP: {ipLoading ? 'Detectando...' : ipAddress}
-            </div>
-            <p className="text-gray-500 text-xs">
-              Acesso seguro à plataforma
-            </p>
           </div>
         </div>
       </div>
