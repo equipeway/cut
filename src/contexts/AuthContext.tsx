@@ -46,7 +46,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const savedUser = localStorage.getItem('terramail_user');
     if (savedUser) {
       try {
-        setUser(JSON.parse(savedUser));
+        const parsedUser = JSON.parse(savedUser);
+        // Validate that the user ID is a valid UUID
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        if (parsedUser.id && uuidRegex.test(parsedUser.id)) {
+          setUser(parsedUser);
+        } else {
+          console.warn('Invalid UUID found in localStorage, clearing user data');
+          localStorage.removeItem('terramail_user');
+        }
       } catch (error) {
         localStorage.removeItem('terramail_user');
       }

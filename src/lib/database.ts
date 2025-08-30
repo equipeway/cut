@@ -133,7 +133,10 @@ export const getUsers = async (): Promise<User[]> => {
         .select('*')
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Failed to load users from Supabase:', error);
+        return HARDCODED_USERS;
+      }
       return data || HARDCODED_USERS;
     } catch (error) {
       console.error('Error loading users from Supabase:', error);
@@ -168,7 +171,8 @@ export const createUser = async (userData: {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.warn('Supabase write operation failed due to RLS. Using mock data.');
+      console.error('Failed to create user in Supabase:', error);
+      // RLS policy violation - return mock data to continue functionality
       return {
         id: crypto.randomUUID(),
         email: userData.email,
@@ -225,15 +229,40 @@ export const deleteUser = async (userId: string): Promise<void> => {
 
 // Processing sessions
 export const getUserSession = async (userId: string): Promise<ProcessingSession | null> => {
+  // Validate UUID format before making Supabase request
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(userId)) {
+    console.warn('Invalid UUID format for userId:', userId);
+    return {
+      id: crypto.randomUUID(),
+      user_id: userId,
+      approved_count: 0,
+      rejected_count: 0,
+      loaded_count: 0,
+      tested_count: 0,
+      is_active: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+  }
+
   if (isSupabaseConfigured()) {
-    const { data, error } = await supabase
-      .from('processing_sessions')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle();
-    
-    if (error) throw error;
-    return data;
+    try {
+      const { data, error } = await supabase
+        .from('processing_sessions')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Failed to load session from Supabase:', error);
+        return null;
+      }
+      return data;
+    } catch (error) {
+      console.error('Error loading session from Supabase:', error);
+      return null;
+    }
   }
   
   // Mock session for hardcoded users
