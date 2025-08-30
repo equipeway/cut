@@ -189,7 +189,7 @@ export const isIPBanned = async (ipAddress: string): Promise<boolean> => {
     .from('banned_ips')
     .select('*')
     .eq('ip_address', ipAddress)
-    .single();
+    .maybeSingle();
   
   if (error && error.code !== 'PGRST116') throw error;
   if (!data) return false;
