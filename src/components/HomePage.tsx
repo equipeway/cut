@@ -36,8 +36,7 @@ function PlanCard({ plan, isPopular = false }: PlanCardProps) {
   ];
 
   const handlePurchase = () => {
-    // Handle purchase logic here
-    console.log('Purchase plan:', plan.name);
+    window.open('https://t.me/monetizei', '_blank');
   };
 
   return (

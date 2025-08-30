@@ -134,36 +134,6 @@ export function Login() {
             </button>
           </form>
 
-          {/* Credenciais para teste */}
-          <div className="mt-10 pt-8 border-t border-purple-500/20">
-            <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50">
-              <p className="text-gray-300 text-sm mb-4 text-center font-medium">Credenciais de Demonstração</p>
-              <div className="space-y-3 text-sm">
-                <div className="bg-purple-500/10 rounded-xl p-4 border border-purple-500/20">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-purple-300 font-semibold flex items-center gap-2">
-                      <Crown className="w-4 h-4" />
-                      Admin:
-                    </span>
-                  </div>
-                  <div className="text-white font-mono text-xs bg-gray-800/50 p-2 rounded-lg">
-                    admin@terramail.com / admin123
-                  </div>
-                </div>
-                <div className="bg-blue-500/10 rounded-xl p-4 border border-blue-500/20">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-blue-300 font-semibold flex items-center gap-2">
-                      <Users className="w-4 h-4" />
-                      Usuário:
-                    </span>
-                  </div>
-                  <div className="text-white font-mono text-xs bg-gray-800/50 p-2 rounded-lg">
-                    user@terramail.com / user123
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
