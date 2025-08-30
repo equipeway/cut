@@ -64,7 +64,7 @@ export interface UserPurchase {
 // Usuários hardcoded para garantir funcionamento
 const HARDCODED_USERS = [
   {
-    id: '1',
+    id: '550e8400-e29b-41d4-a716-446655440001',
     email: 'admin@terramail.com',
     password_hash: 'admin123',
     role: 'admin' as const,
@@ -75,7 +75,7 @@ const HARDCODED_USERS = [
     updated_at: new Date().toISOString()
   },
   {
-    id: '2',
+    id: '550e8400-e29b-41d4-a716-446655440002',
     email: 'user@terramail.com',
     password_hash: 'user123',
     role: 'user' as const,
