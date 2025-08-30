@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, LogIn, Crown, Clock, Check, ExternalLink, Zap, Users, ArrowRight, Star, Activity, Package, AlertTriangle } from 'lucide-react';
-import { getSubscriptionPlans, SubscriptionPlan } from '../lib/database';
-import { isSupabaseConfigured } from '../lib/supabase';
+import { Shield, LogIn, Clock, Check, ExternalLink, Zap, Users, ArrowRight, Star, Activity, Package, AlertTriangle } from 'lucide-react';
+import { getSubscriptionPlans, SubscriptionPlan, isDatabaseReady } from '../lib/database';
 
 interface PlanCardProps {
   plan: SubscriptionPlan;
@@ -111,11 +110,11 @@ export function HomePage() {
       setLoading(true);
       setError(null);
 
-      if (isSupabaseConfigured()) {
+      if (isDatabaseReady()) {
         const plansData = await getSubscriptionPlans();
         setPlans(plansData);
       } else {
-        setError('Sistema não configurado. Por favor, conecte ao Supabase.');
+        setError('Banco de dados não está pronto.');
       }
     } catch (error) {
       console.error('Error loading plans:', error);
@@ -167,7 +166,7 @@ export function HomePage() {
             <div className="w-20 h-20 bg-red-500/20 rounded-3xl flex items-center justify-center mx-auto mb-8">
               <AlertTriangle className="w-10 h-10 text-red-400" />
             </div>
-            <h2 className="text-3xl font-bold text-white mb-4">Sistema Não Configurado</h2>
+            <h2 className="text-3xl font-bold text-white mb-4">Erro no Sistema</h2>
             <p className="text-gray-300 text-lg mb-8">{error}</p>
             <button
               onClick={() => window.location.reload()}
@@ -243,7 +242,7 @@ export function HomePage() {
                 <Package className="w-8 h-8 text-gray-500" />
               </div>
               <p className="text-gray-400 font-medium">Nenhum plano disponível</p>
-              <p className="text-gray-500 text-sm">Configure o Supabase para ver os planos</p>
+              <p className="text-gray-500 text-sm">Inicializando banco de dados...</p>
             </div>
           )}
         </div>

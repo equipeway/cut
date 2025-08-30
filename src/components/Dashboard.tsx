@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { isSupabaseConfigured } from '../lib/supabase';
 import { 
   ProcessingSession,
   getUserSession,
   createSession,
-  updateSession
+  updateSession,
+  isDatabaseReady
 } from '../lib/database';
 import { AdminUserManagement } from './AdminUserManagement';
 import { 
@@ -18,7 +18,6 @@ import {
   XCircle,
   Clock,
   Database,
-  TrendingUp,
   AlertTriangle,
   Shield,
   Zap,
@@ -29,10 +28,7 @@ import {
   Wifi,
   Server,
   Globe,
-  Lock,
-  Users,
-  Calendar,
-  DollarSign
+  Calendar
 } from 'lucide-react';
 
 interface ProcessingResult {
@@ -68,7 +64,7 @@ export function Dashboard() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [progress, setProgress] = useState(0);
   const [currentItem, setCurrentItem] = useState('');
-  const [supabaseError, setSupabaseError] = useState<string | null>(null);
+  const [databaseError, setDatabaseError] = useState<string | null>(null);
   const [systemInfo, setSystemInfo] = useState({
     cpuUsage: 45,
     memoryUsage: 62,
@@ -80,10 +76,10 @@ export function Dashboard() {
 
   useEffect(() => {
     if (user) {
-      if (isSupabaseConfigured()) {
+      if (isDatabaseReady()) {
         loadSession();
       } else {
-        setSupabaseError('Sistema não configurado. Por favor, conecte ao Supabase.');
+        setDatabaseError('Banco de dados não está pronto.');
       }
       // Simulate real-time system updates
       const interval = setInterval(() => {
@@ -123,10 +119,10 @@ export function Dashboard() {
         userSession = await createSession(user.id);
       }
       setSession(userSession);
-      setSupabaseError(null);
+      setDatabaseError(null);
     } catch (error) {
       console.error('Error loading/creating session:', error);
-      setSupabaseError('Erro ao carregar sessão. Verifique a configuração do Supabase.');
+      setDatabaseError('Erro ao carregar sessão do usuário.');
       addNotification('error', 'Erro ao carregar sessão do usuário');
     }
   };
@@ -146,14 +142,14 @@ export function Dashboard() {
   };
 
   const startProcessing = async () => {
-    if (!isSupabaseConfigured()) {
-      addNotification('error', 'Sistema não configurado. Conecte ao Supabase primeiro.');
+    if (!isDatabaseReady()) {
+      addNotification('error', 'Banco de dados não está pronto.');
       return;
     }
 
     let lines = inputList.split('\n').filter(line => line.trim());
     if (lines.length === 0) {
-      addNotification('warning', 'Please enter items to process');
+      addNotification('warning', 'Por favor, insira itens para processar');
       return;
     }
 
@@ -169,7 +165,7 @@ export function Dashboard() {
       is_active: true
     });
 
-    addNotification('info', `Starting processing of ${lines.length} items`);
+    addNotification('info', `Iniciando processamento de ${lines.length} itens`);
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
@@ -183,6 +179,7 @@ export function Dashboard() {
         arr.shift();
         return arr.join('\n');
       });
+      
       try {
         let approved = false;
         let message = '';
@@ -215,7 +212,7 @@ export function Dashboard() {
           message = approved ? 'Valid email format' : 'Invalid format or domain';
           
           if (i === 0) {
-            addNotification('warning', 'API unavailable - using offline mode');
+            addNotification('warning', 'API indisponível - usando modo offline');
           }
         }
         
@@ -258,7 +255,7 @@ export function Dashboard() {
         setResults(prev => [...prev, newResult]);
         
         if (i === 0) {
-          addNotification('error', `Connection failed: ${errorMessage}`);
+          addNotification('error', `Falha na conexão: ${errorMessage}`);
         }
         
         if (session) {
@@ -280,14 +277,14 @@ export function Dashboard() {
     
     const finalResults = results.length > 0 ? results : [];
     const approvedCount = finalResults.filter(r => r.approved).length;
-    addNotification('success', `Processing complete: ${approvedCount} approved, ${results.length - approvedCount} rejected`);
+    addNotification('success', `Processamento concluído: ${approvedCount} aprovados, ${results.length - approvedCount} reprovados`);
   };
 
   const stopProcessing = () => {
     setIsProcessing(false);
     setCurrentItem('');
     updateSessionData({ is_active: false });
-    addNotification('warning', 'Processing stopped by user');
+    addNotification('warning', 'Processamento interrompido pelo usuário');
   };
 
   const clearResults = () => {
@@ -302,7 +299,7 @@ export function Dashboard() {
         tested_count: 0
       });
     }
-    addNotification('info', 'Results cleared');
+    addNotification('info', 'Resultados limpos');
   };
 
   const getNotificationIcon = (type: string) => {
@@ -506,7 +503,7 @@ export function Dashboard() {
 
       {showAdmin && isAdmin ? (
         <div className="max-w-7xl mx-auto p-6">
-          {isSupabaseConfigured() ? (
+          {isDatabaseReady() ? (
             <div className="bg-gray-900/60 backdrop-blur-xl rounded-3xl border border-purple-500/20 shadow-2xl overflow-hidden">
               {/* Enhanced Admin Header */}
               <div className="bg-gradient-to-r from-purple-600/20 to-purple-800/20 p-8 border-b border-purple-500/20">
@@ -559,9 +556,9 @@ export function Dashboard() {
               <div className="w-20 h-20 bg-red-500/20 rounded-3xl flex items-center justify-center mx-auto mb-8">
                 <AlertTriangle className="w-10 h-10 text-red-400" />
               </div>
-              <h2 className="text-3xl font-bold text-white mb-4">Supabase Não Configurado</h2>
+              <h2 className="text-3xl font-bold text-white mb-4">Banco de Dados Não Configurado</h2>
               <p className="text-gray-300 text-lg mb-8">
-                Para usar o painel administrativo, você precisa conectar ao Supabase primeiro.
+                Erro ao inicializar o banco de dados SQLite.
               </p>
               <button
                 onClick={() => setShowAdmin(false)}
@@ -574,13 +571,13 @@ export function Dashboard() {
         </div>
       ) : (
         <main className="max-w-7xl mx-auto p-6">
-          {/* Supabase Configuration Warning */}
-          {supabaseError && (
+          {/* Database Error Warning */}
+          {databaseError && (
             <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 mb-8 flex items-start gap-4">
               <AlertTriangle className="w-6 h-6 text-red-400 mt-0.5 flex-shrink-0" />
               <div>
-                <div className="text-red-300 font-medium mb-1">Configuração Necessária</div>
-                <span className="text-red-300 text-sm">{supabaseError}</span>
+                <div className="text-red-300 font-medium mb-1">Erro do Banco de Dados</div>
+                <span className="text-red-300 text-sm">{databaseError}</span>
               </div>
             </div>
           )}
@@ -947,8 +944,6 @@ export function Dashboard() {
                   </p>
                 </div>
               </div>
-
-              {/* System Performance */}
             </div>
           </div>
         </main>

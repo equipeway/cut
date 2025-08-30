@@ -1,118 +1,103 @@
 import React, { useState, useEffect } from 'react';
-import { isSupabaseConfigured } from '../lib/supabase';
 import { 
-  User, 
-  SubscriptionPlan, 
-  UserPurchase,
   getUsers, 
   createUser, 
   updateUser, 
-  deleteUser,
+  deleteUser, 
+  getSystemStats,
   getSubscriptionPlans,
   createSubscriptionPlan,
   updateSubscriptionPlan,
-  getUserPurchases,
+  deleteSubscriptionPlan,
   createPurchase,
-  getSystemStats
+  User,
+  SubscriptionPlan
 } from '../lib/database';
 import { 
+  Users, 
   Plus, 
   Edit, 
   Trash2, 
-  DollarSign, 
-  Users, 
-  TrendingUp, 
-  Package,
-  Calendar,
-  Shield,
-  Mail,
-  Lock,
-  Save,
-  X,
+  Shield, 
+  Crown, 
+  Ban, 
   CheckCircle,
-  AlertTriangle,
-  BarChart3,
+  XCircle,
+  Calendar,
+  DollarSign,
+  Package,
+  TrendingUp,
   Activity,
-  Clock,
-  AlertTriangle as AlertTriangleIcon
+  AlertTriangle,
+  Save,
+  X
 } from 'lucide-react';
 
-interface CreateUserForm {
-  email: string;
-  password: string;
-  role: 'user' | 'admin';
-  subscription_days: number;
-  allowed_ips: string;
-}
-
-interface CreatePlanForm {
-  name: string;
-  days: number;
-  price: number;
-  description: string;
+interface Notification {
+  id: string;
+  type: 'success' | 'error' | 'warning' | 'info';
+  message: string;
 }
 
 export function AdminUserManagement() {
   const [users, setUsers] = useState<User[]>([]);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
-  const [stats, setStats] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'users' | 'plans' | 'sales' | 'analytics'>('users');
+  const [stats, setStats] = useState<any>({});
+  const [loading, setLoading] = useState(true);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showCreatePlan, setShowCreatePlan] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [userPurchases, setUserPurchases] = useState<UserPurchase[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [activeTab, setActiveTab] = useState<'users' | 'plans' | 'stats'>('users');
 
-  const [createUserForm, setCreateUserForm] = useState<CreateUserForm>({
+  // Form states
+  const [newUser, setNewUser] = useState({
     email: '',
     password: '',
-    role: 'user',
-    subscription_days: 30,
-    allowed_ips: ''
+    role: 'user' as 'user' | 'admin',
+    subscription_days: 0
   });
 
-  const [createPlanForm, setCreatePlanForm] = useState<CreatePlanForm>({
+  const [newPlan, setNewPlan] = useState({
     name: '',
     days: 30,
-    price: 29.90,
+    price: 0,
     description: ''
   });
 
   useEffect(() => {
-    if (isSupabaseConfigured()) {
-      loadData();
-    } else {
-      setError('Supabase não configurado. Por favor, conecte ao Supabase para usar o painel administrativo.');
-      setLoading(false);
-    }
+    loadData();
   }, []);
 
-  const loadData = async () => {
-    if (!isSupabaseConfigured()) {
-      setError('Supabase não configurado');
-      return;
-    }
+  const addNotification = (type: Notification['type'], message: string) => {
+    const notification: Notification = {
+      id: Date.now().toString(),
+      type,
+      message
+    };
+    setNotifications(prev => [notification, ...prev]);
+    
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== notification.id));
+    }, 5000);
+  };
 
+  const loadData = async () => {
     try {
       setLoading(true);
-      setError(null);
       const [usersData, plansData, statsData] = await Promise.all([
         getUsers(),
         getSubscriptionPlans(),
         getSystemStats()
       ]);
+      
       setUsers(usersData);
       setPlans(plansData);
       setStats(statsData);
     } catch (error) {
-      console.error('Error loading data:', error);
-      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-        setError('Erro de conexão com o Supabase. Verifique se as variáveis de ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY estão corretas no arquivo .env e reinicie o servidor de desenvolvimento.');
-      } else {
-        setError('Erro ao carregar dados do Supabase: ' + (error as Error).message);
-      }
+      console.error('Error loading admin data:', error);
+      addNotification('error', 'Erro ao carregar dados administrativos');
     } finally {
       setLoading(false);
     }
@@ -120,524 +105,344 @@ export function AdminUserManagement() {
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!isSupabaseConfigured()) {
-      alert('Supabase não configurado');
-      return;
-    }
-
     try {
-      const allowedIPs = createUserForm.allowed_ips
-        .split(',')
-        .map(ip => ip.trim())
-        .filter(ip => ip);
-
-      await createUser({
-        email: createUserForm.email,
-        password: createUserForm.password,
-        role: createUserForm.role,
-        subscription_days: createUserForm.subscription_days,
-        allowed_ips: allowedIPs
-      });
-
-      setCreateUserForm({
-        email: '',
-        password: '',
-        role: 'user',
-        subscription_days: 30,
-        allowed_ips: ''
-      });
+      await createUser(newUser);
+      setNewUser({ email: '', password: '', role: 'user', subscription_days: 0 });
       setShowCreateUser(false);
       await loadData();
-      setSuccessMessage(`Usuário ${createUserForm.email} criado com sucesso!`);
-      // Auto-hide success message after 5 seconds
-      setTimeout(() => setSuccessMessage(null), 5000);
+      addNotification('success', 'Usuário criado com sucesso');
     } catch (error) {
       console.error('Error creating user:', error);
-      alert('Erro ao criar usuário: ' + (error as Error).message);
+      addNotification('error', 'Erro ao criar usuário');
+    }
+  };
+
+  const handleUpdateUser = async (userId: string, updates: Partial<User>) => {
+    try {
+      await updateUser(userId, updates);
+      await loadData();
+      setEditingUser(null);
+      addNotification('success', 'Usuário atualizado com sucesso');
+    } catch (error) {
+      console.error('Error updating user:', error);
+      addNotification('error', 'Erro ao atualizar usuário');
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm('Tem certeza que deseja deletar este usuário?')) return;
+    
+    try {
+      await deleteUser(userId);
+      await loadData();
+      addNotification('success', 'Usuário deletado com sucesso');
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      addNotification('error', 'Erro ao deletar usuário');
     }
   };
 
   const handleCreatePlan = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!isSupabaseConfigured()) {
-      alert('Supabase não configurado');
-      return;
-    }
-
     try {
-      await createSubscriptionPlan(createPlanForm);
-      setCreatePlanForm({
-        name: '',
-        days: 30,
-        price: 29.90,
-        description: ''
-      });
+      await createSubscriptionPlan(newPlan);
+      setNewPlan({ name: '', days: 30, price: 0, description: '' });
       setShowCreatePlan(false);
-      loadData();
-      setSuccessMessage(`Plano ${createPlanForm.name} criado com sucesso!`);
-      // Auto-hide success message after 5 seconds
-      setTimeout(() => setSuccessMessage(null), 5000);
+      await loadData();
+      addNotification('success', 'Plano criado com sucesso');
     } catch (error) {
       console.error('Error creating plan:', error);
-      alert('Erro ao criar plano: ' + (error as Error).message);
+      addNotification('error', 'Erro ao criar plano');
     }
   };
 
-  const handleSellPlan = async (userId: string, planId: string) => {
-    if (!isSupabaseConfigured()) {
-      alert('Supabase não configurado');
-      return;
+  const handleUpdatePlan = async (planId: string, updates: Partial<SubscriptionPlan>) => {
+    try {
+      await updateSubscriptionPlan(planId, updates);
+      await loadData();
+      setEditingPlan(null);
+      addNotification('success', 'Plano atualizado com sucesso');
+    } catch (error) {
+      console.error('Error updating plan:', error);
+      addNotification('error', 'Erro ao atualizar plano');
     }
+  };
+
+  const handleDeletePlan = async (planId: string) => {
+    if (!confirm('Tem certeza que deseja deletar este plano?')) return;
+    
+    try {
+      await deleteSubscriptionPlan(planId);
+      await loadData();
+      addNotification('success', 'Plano deletado com sucesso');
+    } catch (error) {
+      console.error('Error deleting plan:', error);
+      addNotification('error', 'Erro ao deletar plano');
+    }
+  };
+
+  const handleAddDays = async (userId: string, days: number) => {
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
 
     try {
-      const plan = plans.find(p => p.id === planId);
-      if (!plan) return;
-
-      // Create purchase record
-      await createPurchase({
-        user_id: userId,
-        plan_id: planId,
-        days_added: plan.days,
-        amount_paid: plan.price,
-        payment_method: 'manual'
+      await updateUser(userId, {
+        subscription_days: user.subscription_days + days
       });
-
-      // Update user subscription
-      const user = users.find(u => u.id === userId);
-      if (user) {
-        const result = await updateUser(userId, {
-          subscription_days: user.subscription_days + plan.days
-        });
-        
-        if (!result) {
-          throw new Error('Usuário não encontrado para atualizar assinatura');
-        }
-      }
-
-      loadData();
-      setSuccessMessage(`Plano ${plan.name} vendido para ${users.find(u => u.id === userId)?.email}!`);
-      // Auto-hide success message after 5 seconds
-      setTimeout(() => setSuccessMessage(null), 5000);
+      await loadData();
+      addNotification('success', `${days} dias adicionados ao usuário`);
     } catch (error) {
-      console.error('Error selling plan:', error);
-      alert('Erro ao vender plano');
+      console.error('Error adding days:', error);
+      addNotification('error', 'Erro ao adicionar dias');
     }
   };
-
-  const loadUserPurchases = async (userId: string) => {
-    if (!isSupabaseConfigured()) {
-      return;
-    }
-
-    try {
-      const purchases = await getUserPurchases(userId);
-      setUserPurchases(purchases);
-    } catch (error) {
-      console.error('Error loading purchases:', error);
-    }
-  };
-
-  const handleBanUser = async (userId: string, currentBanStatus: boolean) => {
-    try {
-      console.log(`${currentBanStatus ? 'Unbanning' : 'Banning'} user:`, userId);
-      
-      await updateUser(userId, { is_banned: !currentBanStatus });
-      addNotification('success', `Usuário ${!currentBanStatus ? 'banido' : 'desbanido'} com sucesso`);
-      await loadData(); // Reload from Supabase
-    } catch (error) {
-      console.error('Error banning/unbanning user:', error);
-      addNotification('error', `Erro ao ${currentBanStatus ? 'desbanir' : 'banir'} usuário`);
-    }
-  };
-
-  const handleDeleteUser = async (userId: string, userEmail: string) => {
-    if (!window.confirm(`Tem certeza que deseja excluir o usuário ${userEmail}?`)) {
-      return;
-    }
-
-    try {
-      console.log('Deleting user:', userId);
-      await deleteUser(userId);
-      addNotification('success', `Usuário ${userEmail} excluído com sucesso`);
-      await loadData(); // Reload from Supabase
-    } catch (error) {
-      console.error('Error deleting user:', error);
-      addNotification('error', 'Erro ao excluir usuário');
-    }
-  };
-
-  const tabs = [
-    { key: 'users', label: 'Usuários', icon: Users },
-    { key: 'analytics', label: 'Analytics', icon: TrendingUp },
-    { key: 'plans', label: 'Planos', icon: Package },
-    { key: 'sales', label: 'Vendas', icon: DollarSign }
-  ];
-
-  if (!isSupabaseConfigured()) {
-    return (
-      <div className="text-center py-12">
-        <div className="w-20 h-20 bg-red-500/20 rounded-3xl flex items-center justify-center mx-auto mb-8">
-          <AlertTriangle className="w-10 h-10 text-red-400" />
-        </div>
-        <h3 className="text-2xl font-bold text-white mb-4">Supabase Não Configurado</h3>
-        <p className="text-gray-300 mb-8">
-          Para usar o painel administrativo, você precisa conectar ao Supabase primeiro.
-        </p>
-        <p className="text-gray-400 text-sm">
-          Clique no botão "Connect to Supabase" no canto superior direito da tela.
-        </p>
-      </div>
-    );
-  }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400 mx-auto mb-4"></div>
-          <p className="text-white">Carregando dados do Supabase...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
       <div className="text-center py-12">
-        <div className="w-20 h-20 bg-red-500/20 rounded-3xl flex items-center justify-center mx-auto mb-8">
-          <AlertTriangle className="w-10 h-10 text-red-400" />
-        </div>
-        <h3 className="text-2xl font-bold text-white mb-4">Erro de Configuração</h3>
-        <p className="text-gray-300 mb-8">{error}</p>
-        <button
-          onClick={loadData}
-          className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-8 py-4 rounded-2xl font-bold transition-all shadow-lg shadow-purple-500/25 hover:scale-105"
-        >
-          Tentar Novamente
-        </button>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto mb-4"></div>
+        <p className="text-white">Carregando dados administrativos...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Success Message */}
-      {successMessage && (
-        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-6 flex items-start gap-4 animate-pulse">
-          <CheckCircle className="w-6 h-6 text-emerald-400 mt-0.5 flex-shrink-0" />
-          <div>
-            <div className="text-emerald-300 font-medium mb-1">Operação Realizada</div>
-            <span className="text-emerald-300 text-sm">{successMessage}</span>
-          </div>
-          <button
-            onClick={() => setSuccessMessage(null)}
-            className="text-emerald-400 hover:text-emerald-300 p-1 hover:bg-emerald-500/10 rounded-lg transition-all ml-auto"
-          >
-            <X className="w-4 h-4" />
-          </button>
+    <div className="space-y-8">
+      {/* Notifications */}
+      {notifications.length > 0 && (
+        <div className="space-y-2">
+          {notifications.map(notification => (
+            <div
+              key={notification.id}
+              className={`p-4 rounded-xl border flex items-center gap-3 ${
+                notification.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
+                notification.type === 'error' ? 'bg-red-500/10 border-red-500/20 text-red-400' :
+                notification.type === 'warning' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
+                'bg-blue-500/10 border-blue-500/20 text-blue-400'
+              }`}
+            >
+              {notification.type === 'success' && <CheckCircle className="w-4 h-4" />}
+              {notification.type === 'error' && <XCircle className="w-4 h-4" />}
+              {notification.type === 'warning' && <AlertTriangle className="w-4 h-4" />}
+              <span className="text-sm font-medium">{notification.message}</span>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Enhanced Tab Navigation */}
-      <div className="bg-gray-800/30 rounded-2xl p-2 border border-purple-500/20">
-        <div className="flex gap-2">
-        {tabs.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key as any)}
-            className={`flex-1 px-6 py-4 font-medium text-sm transition-all flex items-center justify-center gap-2 rounded-xl ${
-              activeTab === tab.key
-                ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/25'
-                : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
-            }`}
-          >
-            <tab.icon className="w-4 h-4" />
-            {tab.label}
-          </button>
-        ))}
-        </div>
+      {/* Tab Navigation */}
+      <div className="flex gap-2 bg-gray-800/30 p-2 rounded-2xl">
+        <button
+          onClick={() => setActiveTab('users')}
+          className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
+            activeTab === 'users' 
+              ? 'bg-purple-600 text-white shadow-lg' 
+              : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          Usuários
+        </button>
+        <button
+          onClick={() => setActiveTab('plans')}
+          className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
+            activeTab === 'plans' 
+              ? 'bg-purple-600 text-white shadow-lg' 
+              : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+          }`}
+        >
+          <Package className="w-4 h-4" />
+          Planos
+        </button>
+        <button
+          onClick={() => setActiveTab('stats')}
+          className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
+            activeTab === 'stats' 
+              ? 'bg-purple-600 text-white shadow-lg' 
+              : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+          }`}
+        >
+          <TrendingUp className="w-4 h-4" />
+          Estatísticas
+        </button>
       </div>
-
-      {/* Analytics Tab */}
-      {activeTab === 'analytics' && stats && (
-        <div className="space-y-8">
-          {/* Main Analytics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/10 rounded-2xl p-6 border border-blue-500/20 hover:scale-105 transition-all duration-200 group">
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                  <Users className="w-6 h-6 text-white" />
-                </div>
-                <div className="text-right">
-                  <div className="text-xs text-blue-300 font-medium">USUÁRIOS</div>
-                  <div className="text-xs text-emerald-400">+{stats.activeUsers} ativos</div>
-                </div>
-              </div>
-              <div className="text-3xl font-bold text-white mb-2">{stats.totalUsers}</div>
-              <div className="text-blue-300 text-sm font-medium">Total de Usuários</div>
-            </div>
-
-            <div className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 rounded-2xl p-6 border border-emerald-500/20 hover:scale-105 transition-all duration-200 group">
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                  <TrendingUp className="w-6 h-6 text-white" />
-                </div>
-                <div className="text-right">
-                  <div className="text-xs text-emerald-300 font-medium">PROCESSADOS</div>
-                  <div className="text-xs text-emerald-400">+{stats.totalApproved} aprovados</div>
-                </div>
-              </div>
-              <div className="text-3xl font-bold text-white mb-2">{stats.totalProcessed}</div>
-              <div className="text-emerald-300 text-sm font-medium">Total Processados</div>
-            </div>
-
-            <div className="bg-gradient-to-br from-yellow-500/10 to-yellow-600/10 rounded-2xl p-6 border border-yellow-500/20 hover:scale-105 transition-all duration-200 group">
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-yellow-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                  <DollarSign className="w-6 h-6 text-white" />
-                </div>
-                <div className="text-right">
-                  <div className="text-xs text-yellow-300 font-medium">RECEITA</div>
-                  <div className="text-xs text-emerald-400">+R$ {stats.monthlyRevenue.toFixed(2)} mês</div>
-                </div>
-              </div>
-              <div className="text-3xl font-bold text-white mb-2">R$ {stats.totalRevenue.toFixed(2)}</div>
-              <div className="text-yellow-300 text-sm font-medium">Receita Total</div>
-            </div>
-
-            <div className="bg-gradient-to-br from-red-500/10 to-red-600/10 rounded-2xl p-6 border border-red-500/20 hover:scale-105 transition-all duration-200 group">
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-red-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                  <Shield className="w-6 h-6 text-white" />
-                </div>
-                <div className="text-right">
-                  <div className="text-xs text-red-300 font-medium">SEGURANÇA</div>
-                  <div className="text-xs text-purple-400">{stats.adminUsers} admins</div>
-                </div>
-              </div>
-              <div className="text-3xl font-bold text-white mb-2">{stats.bannedUsers}</div>
-              <div className="text-red-300 text-sm font-medium">Usuários Banidos</div>
-            </div>
-          </div>
-
-          {/* Performance Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-gray-800/50 rounded-2xl p-6 border border-purple-500/20">
-              <h4 className="text-white font-semibold mb-4 flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-purple-400" />
-                Taxa de Aprovação
-              </h4>
-              <div className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Aprovados</span>
-                  <span className="text-emerald-400 font-medium">{stats.totalApproved}</span>
-                </div>
-                <div className="w-full bg-gray-700 rounded-full h-3">
-                  <div 
-                    className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-1000"
-                    style={{ width: `${stats.totalProcessed ? (stats.totalApproved / stats.totalProcessed) * 100 : 0}%` }}
-                  />
-                </div>
-                <div className="text-center text-2xl font-bold text-white">
-                  {stats.totalProcessed ? Math.round((stats.totalApproved / stats.totalProcessed) * 100) : 0}%
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gray-800/50 rounded-2xl p-6 border border-purple-500/20">
-              <h4 className="text-white font-semibold mb-4 flex items-center gap-2">
-                <Activity className="w-5 h-5 text-purple-400" />
-                Atividade Recente
-              </h4>
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 p-3 bg-gray-700/30 rounded-lg">
-                  <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                  <span className="text-gray-300 text-sm">Sistema operacional</span>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-gray-700/30 rounded-lg">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                  <span className="text-gray-300 text-sm">{stats.activeUsers} usuários online</span>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-gray-700/30 rounded-lg">
-                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-                  <span className="text-gray-300 text-sm">Processamento ativo</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Users Tab */}
       {activeTab === 'users' && (
         <div className="space-y-6">
-          <div className="flex justify-between items-center mb-8">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
-                <Users className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-white">Gestão de Usuários</h3>
-                <p className="text-gray-400 text-sm">Controle completo de contas</p>
-              </div>
-            </div>
+          {/* Create User Button */}
+          <div className="flex justify-between items-center">
+            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+              <Users className="w-5 h-5 text-purple-400" />
+              Gerenciar Usuários ({users.length})
+            </h3>
             <button
               onClick={() => setShowCreateUser(true)}
-              className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-6 py-3 rounded-xl font-medium transition-all flex items-center gap-2 shadow-lg shadow-purple-500/25 hover:scale-105"
+              className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-4 py-2 rounded-xl font-medium transition-all flex items-center gap-2 shadow-lg"
             >
               <Plus className="w-4 h-4" />
-              Criar Usuário
+              Novo Usuário
             </button>
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-purple-500/20 bg-gray-800/30 shadow-xl">
-            <table className="w-full">
-              <thead className="bg-gradient-to-r from-purple-600/20 to-purple-800/20">
-                <tr>
-                  <th className="text-left text-white font-bold py-6 px-8 text-sm">USUÁRIO</th>
-                  <th className="text-left text-white font-bold py-6 px-8 text-sm">FUNÇÃO</th>
-                  <th className="text-left text-white font-bold py-6 px-8 text-sm">ASSINATURA</th>
-                  <th className="text-left text-white font-bold py-6 px-8 text-sm">STATUS</th>
-                  <th className="text-left text-white font-bold py-6 px-8 text-sm">AÇÕES</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-purple-500/10 bg-gray-900/30">
-                {users.map(user => (
-                  <tr key={user.id} className="hover:bg-gray-800/50 transition-all duration-200 group">
-                    <td className="py-6 px-8">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                          <span className="text-white text-sm font-bold">
-                            {user.email.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                        <div>
-                          <div className="text-white font-medium">{user.email}</div>
-                          <div className="text-gray-400 text-xs">
-                            Criado em {new Date(user.created_at).toLocaleDateString()}
+          {/* Create User Modal */}
+          {showCreateUser && (
+            <div className="bg-gray-800/50 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h4 className="text-lg font-bold text-white">Criar Novo Usuário</h4>
+                <button
+                  onClick={() => setShowCreateUser(false)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={newUser.email}
+                  onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                  className="bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  required
+                />
+                <input
+                  type="password"
+                  placeholder="Senha"
+                  value={newUser.password}
+                  onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                  className="bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  required
+                />
+                <select
+                  value={newUser.role}
+                  onChange={(e) => setNewUser({...newUser, role: e.target.value as 'user' | 'admin'})}
+                  className="bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                >
+                  <option value="user">Usuário</option>
+                  <option value="admin">Admin</option>
+                </select>
+                <input
+                  type="number"
+                  placeholder="Dias de assinatura"
+                  value={newUser.subscription_days}
+                  onChange={(e) => setNewUser({...newUser, subscription_days: parseInt(e.target.value) || 0})}
+                  className="bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                />
+                <div className="md:col-span-2">
+                  <button
+                    type="submit"
+                    className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-6 py-3 rounded-xl font-medium transition-all flex items-center gap-2"
+                  >
+                    <Save className="w-4 h-4" />
+                    Criar Usuário
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Users List */}
+          <div className="bg-gray-800/30 backdrop-blur-xl rounded-2xl border border-gray-700/50 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-700/50">
+                  <tr>
+                    <th className="text-left p-4 text-gray-300 font-semibold">Usuário</th>
+                    <th className="text-left p-4 text-gray-300 font-semibold">Role</th>
+                    <th className="text-left p-4 text-gray-300 font-semibold">Dias</th>
+                    <th className="text-left p-4 text-gray-300 font-semibold">Status</th>
+                    <th className="text-left p-4 text-gray-300 font-semibold">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map(user => (
+                    <tr key={user.id} className="border-t border-gray-700/30 hover:bg-gray-700/20">
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-purple-600 rounded-lg flex items-center justify-center">
+                            <span className="text-white text-sm font-bold">
+                              {user.email.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-white font-medium">{user.email}</p>
+                            <p className="text-gray-400 text-xs">ID: {user.id.slice(0, 8)}...</p>
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="py-6 px-8">
-                      <span className={`px-3 py-1 rounded-lg text-xs font-medium border ${
-                        user.role === 'admin' 
-                          ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
-                          : 'bg-blue-500/20 text-blue-300 border-blue-500/30'
-                      }`}>
-                        {user.role}
-                      </span>
-                    </td>
-                    <td className="py-6 px-8">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-purple-400" />
-                        <span className="text-white font-mono text-sm font-bold">
-                          {user.subscription_days} dias
+                      </td>
+                      <td className="p-4">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          user.role === 'admin' 
+                            ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' 
+                            : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                        }`}>
+                          {user.role === 'admin' ? (
+                            <div className="flex items-center gap-1">
+                              <Crown className="w-3 h-3" />
+                              Admin
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <Shield className="w-3 h-3" />
+                              User
+                            </div>
+                          )}
                         </span>
-                      </div>
-                      <div className="w-20 bg-gray-700 rounded-full h-1.5 mt-2">
-                        <div className="h-full bg-gradient-to-r from-purple-500 to-purple-600 rounded-full" style={{ width: `${Math.min(user.subscription_days / 365 * 100, 100)}%` }} />
-                      </div>
-                    </td>
-                    <td className="py-6 px-8">
-                      <span className={`px-3 py-1 rounded-lg text-xs font-medium border ${
-                        user.is_banned 
-                          ? 'bg-red-500/20 text-red-300 border-red-500/30' 
-                          : user.subscription_days > 0
-                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                          : 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
-                      }`}>
-                        {user.is_banned ? 'Banido' : user.subscription_days > 0 ? 'Ativo' : 'Expirado'}
-                      </span>
-                    </td>
-                    <td className="py-6 px-8">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => {
-                            setSelectedUser(user);
-                            loadUserPurchases(user.id);
-                          }}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all shadow-lg"
-                          title="Gerenciar vendas"
-                        >
-                          <DollarSign className="w-3 h-3" />
-                        </button>
-                        {user.is_banned ? (
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-purple-400" />
+                          <span className="text-white font-mono">{user.subscription_days}</span>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 w-fit ${
+                          user.is_banned 
+                            ? 'bg-red-500/20 text-red-300 border border-red-500/30' 
+                            : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        }`}>
+                          {user.is_banned ? (
+                            <>
+                              <Ban className="w-3 h-3" />
+                              Banido
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="w-3 h-3" />
+                              Ativo
+                            </>
+                          )}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
                           <button
-                            onClick={async () => {
-                              if (!isSupabaseConfigured()) return;
-                              try {
-                                const result = await updateUser(user.id, { is_banned: false });
-                                if (result) {
-                                  await loadData();
-                                  setSuccessMessage(`Usuário ${user.email} foi desbanido com sucesso!`);
-                                  setTimeout(() => setSuccessMessage(null), 5000);
-                                } else {
-                                  alert('Usuário não encontrado. A lista será atualizada.');
-                                  await loadData();
-                                }
-                              } catch (error) {
-                                console.error('Erro ao desbanir usuário:', error);
-                                alert('Erro ao desbanir usuário: ' + (error as Error).message);
-                              }
-                            }}
-                            title="Desbanir usuário"
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all shadow-lg"
+                            onClick={() => setEditingUser(user)}
+                            className="text-blue-400 hover:text-blue-300 p-2 hover:bg-blue-500/10 rounded-lg transition-all"
                           >
-                            Desbanir
+                            <Edit className="w-4 h-4" />
                           </button>
-                        ) : (
                           <button
-                            onClick={async () => {
-                              try {
-                                const result = await updateUser(user.id, { is_banned: true });
-                                if (result) {
-                                  await loadData();
-                                  setSuccessMessage(`Usuário ${user.email} foi banido com sucesso!`);
-                                  setTimeout(() => setSuccessMessage(null), 5000);
-                                } else {
-                                  alert('Usuário não encontrado. A lista será atualizada.');
-                                  await loadData();
-                                }
-                              } catch (error) {
-                                console.error('Erro ao banir usuário:', error);
-                                alert('Erro ao banir usuário: ' + (error as Error).message);
-                              }
-                            }}
-                            title="Banir usuário"
-                            className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all shadow-lg"
+                            onClick={() => handleAddDays(user.id, 30)}
+                            className="text-emerald-400 hover:text-emerald-300 p-2 hover:bg-emerald-500/10 rounded-lg transition-all"
+                            title="Adicionar 30 dias"
                           >
-                            Banir
+                            <Plus className="w-4 h-4" />
                           </button>
-                        )}
-                        <button
-                          onClick={async () => {
-                            try {
-                              if (!isSupabaseConfigured()) return;
-                              if (confirm(`Tem certeza que deseja deletar o usuário ${user.email}?`)) {
-                                await deleteUser(user.id);
-                                await loadData();
-                                setSuccessMessage(`Usuário ${user.email} foi deletado com sucesso!`);
-                                setTimeout(() => setSuccessMessage(null), 5000);
-                              }
-                            } catch (error) {
-                              console.error('Erro ao deletar usuário:', error);
-                              alert('Erro ao deletar usuário: ' + (error as Error).message);
-                            }
-                          }}
-                          title="Deletar usuário"
-                          className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all shadow-lg"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                          <button
+                            onClick={() => handleDeleteUser(user.id)}
+                            className="text-red-400 hover:text-red-300 p-2 hover:bg-red-500/10 rounded-lg transition-all"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -645,80 +450,119 @@ export function AdminUserManagement() {
       {/* Plans Tab */}
       {activeTab === 'plans' && (
         <div className="space-y-6">
-          <div className="flex justify-between items-center mb-8">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
-                <Package className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-white">Planos de Assinatura</h3>
-                <p className="text-gray-400 text-sm">Gerenciar produtos e preços</p>
-              </div>
-            </div>
+          <div className="flex justify-between items-center">
+            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+              <Package className="w-5 h-5 text-purple-400" />
+              Gerenciar Planos ({plans.length})
+            </h3>
             <button
               onClick={() => setShowCreatePlan(true)}
-              className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-6 py-3 rounded-xl font-medium transition-all flex items-center gap-2 shadow-lg shadow-purple-500/25 hover:scale-105"
+              className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-4 py-2 rounded-xl font-medium transition-all flex items-center gap-2 shadow-lg"
             >
               <Plus className="w-4 h-4" />
-              Criar Plano
+              Novo Plano
             </button>
           </div>
 
+          {/* Create Plan Modal */}
+          {showCreatePlan && (
+            <div className="bg-gray-800/50 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h4 className="text-lg font-bold text-white">Criar Novo Plano</h4>
+                <button
+                  onClick={() => setShowCreatePlan(false)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <form onSubmit={handleCreatePlan} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input
+                  type="text"
+                  placeholder="Nome do plano"
+                  value={newPlan.name}
+                  onChange={(e) => setNewPlan({...newPlan, name: e.target.value})}
+                  className="bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  required
+                />
+                <input
+                  type="number"
+                  placeholder="Dias"
+                  value={newPlan.days}
+                  onChange={(e) => setNewPlan({...newPlan, days: parseInt(e.target.value) || 0})}
+                  className="bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  required
+                />
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="Preço"
+                  value={newPlan.price}
+                  onChange={(e) => setNewPlan({...newPlan, price: parseFloat(e.target.value) || 0})}
+                  className="bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  required
+                />
+                <input
+                  type="text"
+                  placeholder="Descrição"
+                  value={newPlan.description}
+                  onChange={(e) => setNewPlan({...newPlan, description: e.target.value})}
+                  className="bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                />
+                <div className="md:col-span-2">
+                  <button
+                    type="submit"
+                    className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-6 py-3 rounded-xl font-medium transition-all flex items-center gap-2"
+                  >
+                    <Save className="w-4 h-4" />
+                    Criar Plano
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Plans Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {plans.map(plan => (
-              <div key={plan.id} className="bg-gray-800/50 rounded-2xl p-6 border border-purple-500/20 hover:scale-105 transition-all duration-200 group shadow-xl">
-                <div className="flex justify-between items-center mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
-                      <Package className="w-4 h-4 text-white" />
-                    </div>
-                    <h4 className="text-white font-bold text-lg">{plan.name}</h4>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-white group-hover:text-purple-400 transition-colors">
-                      R$ {plan.price.toFixed(2)}
-                    </div>
-                    <div className="text-xs text-purple-300 font-medium">{plan.days} dias</div>
+              <div key={plan.id} className="bg-gray-800/30 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-6 hover:border-purple-500/30 transition-all">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-lg font-bold text-white">{plan.name}</h4>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setEditingPlan(plan)}
+                      className="text-blue-400 hover:text-blue-300 p-1 hover:bg-blue-500/10 rounded"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeletePlan(plan.id)}
+                      className="text-red-400 hover:text-red-300 p-1 hover:bg-red-500/10 rounded"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
-                <div className="mb-6">
-                  <p className="text-gray-300 text-sm leading-relaxed">{plan.description}</p>
-                </div>
-                <div className="mb-6 p-4 bg-gradient-to-r from-purple-500/10 to-purple-600/10 rounded-xl border border-purple-500/20">
-                  <div className="text-xs text-purple-300 mb-2 font-medium">CUSTO DIÁRIO</div>
-                  <div className="text-lg font-bold text-white">
-                    R$ {(plan.price / plan.days).toFixed(2)}
+                <p className="text-gray-300 text-sm mb-4">{plan.description}</p>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400 text-sm">Preço:</span>
+                    <span className="text-white font-bold">R$ {plan.price.toFixed(2)}</span>
                   </div>
-                  <div className="text-xs text-gray-400 mt-1">por dia de acesso</div>
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={async () => {
-                      if (!isSupabaseConfigured()) return;
-                      await updateSubscriptionPlan(plan.id, { is_active: !plan.is_active });
-                      loadData();
-                    }}
-                    className={`flex-1 px-4 py-3 rounded-xl text-sm font-medium transition-all shadow-lg ${
-                      plan.is_active
-                        ? 'bg-red-600 hover:bg-red-700 text-white shadow-red-500/25'
-                        : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/25'
-                    }`}
-                  >
-                    {plan.is_active ? 'Desativar' : 'Ativar'}
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!isSupabaseConfigured()) return;
-                      const newPrice = prompt('Novo preço:', plan.price.toString());
-                      if (newPrice && !isNaN(parseFloat(newPrice))) {
-                        await updateSubscriptionPlan(plan.id, { price: parseFloat(newPrice) });
-                        loadData();
-                      }
-                    }}
-                    className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium transition-all shadow-lg shadow-blue-500/25"
-                  >
-                    Editar
-                  </button>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400 text-sm">Duração:</span>
+                    <span className="text-white font-bold">{plan.days} dias</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400 text-sm">Status:</span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      plan.is_active 
+                        ? 'bg-emerald-500/20 text-emerald-300' 
+                        : 'bg-red-500/20 text-red-300'
+                    }`}>
+                      {plan.is_active ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </div>
                 </div>
               </div>
             ))}
@@ -726,358 +570,206 @@ export function AdminUserManagement() {
         </div>
       )}
 
-      {/* Sales Tab */}
-      {activeTab === 'sales' && (
+      {/* Statistics Tab */}
+      {activeTab === 'stats' && (
         <div className="space-y-6">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center">
-              <DollarSign className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-white">Central de Vendas</h3>
-              <p className="text-gray-400 text-sm">Gerenciar vendas e assinaturas</p>
-            </div>
-          </div>
+          <h3 className="text-xl font-bold text-white flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-purple-400" />
+            Estatísticas do Sistema
+          </h3>
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Users List */}
-            <div className="bg-gray-800/50 rounded-2xl p-6 border border-purple-500/20 shadow-xl">
-              <h4 className="text-white font-semibold mb-6 flex items-center gap-2">
-                <Users className="w-5 h-5 text-purple-400" />
-                Selecionar Cliente
-              </h4>
-              <div className="space-y-2 max-h-96 overflow-y-auto custom-scrollbar">
-                {users.filter(u => u.role !== 'admin').map(user => (
-                  <button
-                    key={user.id}
-                    onClick={() => {
-                      setSelectedUser(user);
-                      loadUserPurchases(user.id);
-                    }}
-                    className={`w-full text-left p-4 rounded-xl transition-all border hover:scale-[1.02] ${
-                      selectedUser?.id === user.id
-                        ? 'bg-purple-500/20 border-purple-500/50 text-purple-300 shadow-lg'
-                        : 'bg-gray-700/50 border-gray-600/50 text-gray-300 hover:bg-gray-700 hover:border-gray-500'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-gradient-to-br from-gray-600 to-gray-700 rounded-lg flex items-center justify-center">
-                        <span className="text-white text-xs font-bold">
-                          {user.email.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-medium">{user.email}</div>
-                        <div className="text-xs opacity-70">{user.subscription_days} dias restantes</div>
-                      </div>
-                      <div className={`w-3 h-3 rounded-full ${user.subscription_days > 0 ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
-                    </div>
-                  </button>
-                ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <Users className="w-8 h-8 text-blue-400" />
+                <div>
+                  <p className="text-blue-300 font-semibold">Total de Usuários</p>
+                  <p className="text-3xl font-bold text-white">{stats.totalUsers || 0}</p>
+                </div>
               </div>
             </div>
-
-            {/* Plans for Sale */}
-            <div className="bg-gray-800/50 rounded-2xl p-6 border border-purple-500/20 shadow-xl">
-              <h4 className="text-white font-semibold mb-6 flex items-center gap-2">
-                <Package className="w-5 h-5 text-purple-400" />
-                Vender Plano
-              </h4>
-              {selectedUser ? (
-                <div className="space-y-4">
-                  <div className="bg-gradient-to-r from-purple-500/10 to-purple-600/10 border border-purple-500/20 rounded-xl p-6">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
-                        <span className="text-white text-sm font-bold">
-                          {selectedUser.email.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="text-purple-300 text-xs font-medium">CLIENTE SELECIONADO</p>
-                        <p className="text-white font-bold">{selectedUser.email}</p>
-                      </div>
-                    </div>
-                    <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-400 text-sm">Dias restantes:</span>
-                        <span className="text-white font-bold">{selectedUser.subscription_days}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    {plans.filter(p => p.is_active).map(plan => (
-                      <div key={plan.id} className="bg-gray-700/50 rounded-xl p-6 border border-gray-600/50 hover:bg-gray-700/70 transition-all group">
-                        <div className="flex justify-between items-center mb-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                              <Package className="w-4 h-4 text-white" />
-                            </div>
-                            <h5 className="text-white font-bold">{plan.name}</h5>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-2xl font-bold text-purple-400">R$ {plan.price.toFixed(2)}</span>
-                            <div className="text-xs text-gray-400">{plan.days} dias</div>
-                          </div>
-                        </div>
-                        <div className="mb-4">
-                          <p className="text-gray-300 text-sm mb-2">{plan.description}</p>
-                          <div className="bg-purple-500/10 rounded-lg p-3 border border-purple-500/20">
-                            <div className="text-xs text-purple-300 mb-1">Custo por dia</div>
-                            <div className="text-sm font-bold text-white">R$ {(plan.price / plan.days).toFixed(2)}</div>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleSellPlan(selectedUser.id, plan.id)}
-                          className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white py-3 px-4 rounded-xl text-sm font-medium transition-all shadow-lg shadow-emerald-500/25 hover:scale-105"
-                        >
-                          💰 Vender (+{plan.days} dias)
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Purchase History */}
-                  {userPurchases.length > 0 && (
-                    <div className="mt-6">
-                      <h5 className="text-white font-semibold mb-4 flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-purple-400" />
-                        Histórico de Compras
-                      </h5>
-                      <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
-                        {userPurchases.map(purchase => (
-                          <div key={purchase.id} className="bg-gray-700/30 rounded-xl p-4 border border-gray-600/30 hover:bg-gray-700/50 transition-all">
-                            <div className="flex justify-between items-center mb-2">
-                              <span className="text-white text-sm font-medium">{purchase.plan?.name}</span>
-                              <span className="text-emerald-400 text-sm font-bold">
-                                R$ {purchase.amount_paid.toFixed(2)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                              <span className="text-gray-400 text-xs">
-                                {new Date(purchase.created_at).toLocaleDateString()}
-                              </span>
-                              <span className="text-purple-300 text-xs">
-                                +{purchase.days_added} dias
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+            
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <CheckCircle className="w-8 h-8 text-emerald-400" />
+                <div>
+                  <p className="text-emerald-300 font-semibold">Usuários Ativos</p>
+                  <p className="text-3xl font-bold text-white">{stats.activeUsers || 0}</p>
                 </div>
-              ) : (
-                <div className="text-center py-12">
-                  <div className="w-16 h-16 bg-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <Users className="w-8 h-8 text-gray-500" />
-                  </div>
-                  <p className="text-gray-400 font-medium">Selecione um cliente</p>
-                  <p className="text-gray-500 text-sm">para gerenciar vendas e planos</p>
+              </div>
+            </div>
+            
+            <div className="bg-purple-500/10 border border-purple-500/20 rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <Activity className="w-8 h-8 text-purple-400" />
+                <div>
+                  <p className="text-purple-300 font-semibold">Total Processado</p>
+                  <p className="text-3xl font-bold text-white">{stats.totalProcessed || 0}</p>
                 </div>
-              )}
+              </div>
+            </div>
+            
+            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <DollarSign className="w-8 h-8 text-yellow-400" />
+                <div>
+                  <p className="text-yellow-300 font-semibold">Receita Total</p>
+                  <p className="text-3xl font-bold text-white">R$ {(stats.totalRevenue || 0).toFixed(2)}</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Create User Modal */}
-      {showCreateUser && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-lg flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900/90 backdrop-blur-xl rounded-3xl border border-purple-500/20 p-8 w-full max-w-lg shadow-2xl">
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
-                  <Plus className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-white">Criar Novo Usuário</h3>
-                  <p className="text-purple-300 text-sm">Adicionar conta ao sistema</p>
-                </div>
-              </div>
+      {/* Edit User Modal */}
+      {editingUser && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 rounded-2xl border border-purple-500/20 p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-6">
+              <h4 className="text-lg font-bold text-white">Editar Usuário</h4>
               <button
-                onClick={() => setShowCreateUser(false)}
-                className="text-gray-400 hover:text-white p-2 hover:bg-gray-800/50 rounded-xl transition-all"
+                onClick={() => setEditingUser(null)}
+                className="text-gray-400 hover:text-white"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </button>
             </div>
-
-            <form onSubmit={handleCreateUser} className="space-y-6">
+            <div className="space-y-4">
               <div>
-                <label className="block text-white text-sm font-semibold mb-3">Email</label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-purple-400" />
-                  <input
-                    type="email"
-                    value={createUserForm.email}
-                    onChange={(e) => setCreateUserForm(prev => ({ ...prev, email: e.target.value }))}
-                    className="w-full pl-12 pr-4 py-4 bg-gray-800/50 border border-purple-500/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
-                    placeholder="usuario@email.com"
-                    required
-                  />
-                </div>
+                <label className="block text-gray-300 text-sm mb-2">Email</label>
+                <input
+                  type="email"
+                  value={editingUser.email}
+                  onChange={(e) => setEditingUser({...editingUser, email: e.target.value})}
+                  className="w-full bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-3 text-white"
+                />
               </div>
-
               <div>
-                <label className="block text-white text-sm font-semibold mb-3">Senha</label>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-purple-400" />
-                  <input
-                    type="password"
-                    value={createUserForm.password}
-                    onChange={(e) => setCreateUserForm(prev => ({ ...prev, password: e.target.value }))}
-                    className="w-full pl-12 pr-4 py-4 bg-gray-800/50 border border-purple-500/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
-                    placeholder="Senha segura"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-white text-sm font-semibold mb-3">Função</label>
+                <label className="block text-gray-300 text-sm mb-2">Role</label>
                 <select
-                  value={createUserForm.role}
-                  onChange={(e) => setCreateUserForm(prev => ({ ...prev, role: e.target.value as 'user' | 'admin' }))}
-                  className="w-full py-4 px-4 bg-gray-800/50 border border-purple-500/30 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
+                  value={editingUser.role}
+                  onChange={(e) => setEditingUser({...editingUser, role: e.target.value as 'user' | 'admin'})}
+                  className="w-full bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-3 text-white"
                 >
                   <option value="user">Usuário</option>
-                  <option value="admin">Administrador</option>
+                  <option value="admin">Admin</option>
                 </select>
               </div>
-
               <div>
-                <label className="block text-white text-sm font-semibold mb-3">Dias de Assinatura</label>
+                <label className="block text-gray-300 text-sm mb-2">Dias de Assinatura</label>
                 <input
                   type="number"
-                  value={createUserForm.subscription_days}
-                  onChange={(e) => setCreateUserForm(prev => ({ ...prev, subscription_days: parseInt(e.target.value) || 0 }))}
-                  className="w-full py-4 px-4 bg-gray-800/50 border border-purple-500/30 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
-                  min="0"
+                  value={editingUser.subscription_days}
+                  onChange={(e) => setEditingUser({...editingUser, subscription_days: parseInt(e.target.value) || 0})}
+                  className="w-full bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-3 text-white"
                 />
               </div>
-
-              <div>
-                <label className="block text-white text-sm font-semibold mb-3">IPs Permitidos (opcional)</label>
+              <div className="flex items-center gap-3">
                 <input
-                  type="text"
-                  value={createUserForm.allowed_ips}
-                  onChange={(e) => setCreateUserForm(prev => ({ ...prev, allowed_ips: e.target.value }))}
-                  className="w-full py-4 px-4 bg-gray-800/50 border border-purple-500/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
-                  placeholder="192.168.1.1, 10.0.0.1"
+                  type="checkbox"
+                  id="banned"
+                  checked={editingUser.is_banned}
+                  onChange={(e) => setEditingUser({...editingUser, is_banned: e.target.checked})}
+                  className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500"
                 />
-                <p className="text-gray-400 text-xs mt-2">Separar múltiplos IPs por vírgula</p>
+                <label htmlFor="banned" className="text-gray-300 text-sm">Usuário banido</label>
               </div>
-
-              <div className="flex gap-4 pt-6">
+              <div className="flex gap-3 pt-4">
                 <button
-                  type="button"
-                  onClick={() => setShowCreateUser(false)}
-                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-4 px-6 rounded-xl font-medium transition-all shadow-lg"
+                  onClick={() => handleUpdateUser(editingUser.id, editingUser)}
+                  className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white py-3 rounded-xl font-medium transition-all"
+                >
+                  Salvar
+                </button>
+                <button
+                  onClick={() => setEditingUser(null)}
+                  className="px-6 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-xl font-medium transition-all"
                 >
                   Cancelar
                 </button>
-                <button
-                  type="submit"
-                  className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white py-4 px-6 rounded-xl font-medium transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-500/25 hover:scale-105"
-                >
-                  <Save className="w-4 h-4" />
-                  Criar
-                </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Create Plan Modal */}
-      {showCreatePlan && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-lg flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900/90 backdrop-blur-xl rounded-3xl border border-purple-500/20 p-8 w-full max-w-lg shadow-2xl">
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
-                  <Package className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-white">Criar Novo Plano</h3>
-                  <p className="text-purple-300 text-sm">Adicionar produto ao sistema</p>
-                </div>
-              </div>
+      {/* Edit Plan Modal */}
+      {editingPlan && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 rounded-2xl border border-purple-500/20 p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-6">
+              <h4 className="text-lg font-bold text-white">Editar Plano</h4>
               <button
-                onClick={() => setShowCreatePlan(false)}
-                className="text-gray-400 hover:text-white p-2 hover:bg-gray-800/50 rounded-xl transition-all"
+                onClick={() => setEditingPlan(null)}
+                className="text-gray-400 hover:text-white"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </button>
             </div>
-
-            <form onSubmit={handleCreatePlan} className="space-y-6">
+            <div className="space-y-4">
               <div>
-                <label className="block text-white text-sm font-semibold mb-3">Nome do Plano</label>
+                <label className="block text-gray-300 text-sm mb-2">Nome</label>
                 <input
                   type="text"
-                  value={createPlanForm.name}
-                  onChange={(e) => setCreatePlanForm(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full py-4 px-4 bg-gray-800/50 border border-purple-500/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
-                  placeholder="Plano Premium"
-                  required
+                  value={editingPlan.name}
+                  onChange={(e) => setEditingPlan({...editingPlan, name: e.target.value})}
+                  className="w-full bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-3 text-white"
                 />
               </div>
-
               <div>
-                <label className="block text-white text-sm font-semibold mb-3">Duração (dias)</label>
+                <label className="block text-gray-300 text-sm mb-2">Dias</label>
                 <input
                   type="number"
-                  value={createPlanForm.days}
-                  onChange={(e) => setCreatePlanForm(prev => ({ ...prev, days: parseInt(e.target.value) || 0 }))}
-                  className="w-full py-4 px-4 bg-gray-800/50 border border-purple-500/30 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
-                  min="1"
-                  required
+                  value={editingPlan.days}
+                  onChange={(e) => setEditingPlan({...editingPlan, days: parseInt(e.target.value) || 0})}
+                  className="w-full bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-3 text-white"
                 />
               </div>
-
               <div>
-                <label className="block text-white text-sm font-semibold mb-3">Preço (R$)</label>
+                <label className="block text-gray-300 text-sm mb-2">Preço</label>
                 <input
                   type="number"
                   step="0.01"
-                  value={createPlanForm.price}
-                  onChange={(e) => setCreatePlanForm(prev => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
-                  className="w-full py-4 px-4 bg-gray-800/50 border border-purple-500/30 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
-                  min="0"
-                  required
+                  value={editingPlan.price}
+                  onChange={(e) => setEditingPlan({...editingPlan, price: parseFloat(e.target.value) || 0})}
+                  className="w-full bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-3 text-white"
                 />
               </div>
-
               <div>
-                <label className="block text-white text-sm font-semibold mb-3">Descrição</label>
-                <textarea
-                  value={createPlanForm.description}
-                  onChange={(e) => setCreatePlanForm(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full py-4 px-4 bg-gray-800/50 border border-purple-500/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-none transition-all"
-                  rows={3}
-                  placeholder="Descrição do plano..."
+                <label className="block text-gray-300 text-sm mb-2">Descrição</label>
+                <input
+                  type="text"
+                  value={editingPlan.description}
+                  onChange={(e) => setEditingPlan({...editingPlan, description: e.target.value})}
+                  className="w-full bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-3 text-white"
                 />
               </div>
-
-              <div className="flex gap-4 pt-6">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="active"
+                  checked={editingPlan.is_active}
+                  onChange={(e) => setEditingPlan({...editingPlan, is_active: e.target.checked})}
+                  className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500"
+                />
+                <label htmlFor="active" className="text-gray-300 text-sm">Plano ativo</label>
+              </div>
+              <div className="flex gap-3 pt-4">
                 <button
-                  type="button"
-                  onClick={() => setShowCreatePlan(false)}
-                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-4 px-6 rounded-xl font-medium transition-all shadow-lg"
+                  onClick={() => handleUpdatePlan(editingPlan.id, editingPlan)}
+                  className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white py-3 rounded-xl font-medium transition-all"
+                >
+                  Salvar
+                </button>
+                <button
+                  onClick={() => setEditingPlan(null)}
+                  className="px-6 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-xl font-medium transition-all"
                 >
                   Cancelar
                 </button>
-                <button
-                  type="submit"
-                  className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white py-4 px-6 rounded-xl font-medium transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-500/25 hover:scale-105"
-                >
-                  <Save className="w-4 h-4" />
-                  Criar
-                </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
