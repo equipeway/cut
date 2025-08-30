@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { getUserByEmail, logLoginAttempt, initDatabase, User } from '../lib/database';
-import bcrypt from 'bcryptjs';
 
 interface AuthContextType {
   user: User | null;
@@ -32,7 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser({
               id: dbUser.id,
               email: dbUser.email,
-              password_hash: dbUser.password_hash,
+              password: dbUser.password,
               role: dbUser.role,
               subscription_days: dbUser.subscription_days,
               allowed_ips: dbUser.allowed_ips,
@@ -70,21 +69,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       console.log('Comparing password...');
-      let passwordMatch = false;
-      
-      try {
-        // Check if password is hashed (starts with $2a$ or $2b$) or plain text
-        if (foundUser.password_hash.startsWith('$2a$') || foundUser.password_hash.startsWith('$2b$')) {
-          passwordMatch = await bcrypt.compare(password, foundUser.password_hash);
-        } else {
-          // Plain text comparison for backwards compatibility
-          passwordMatch = password === foundUser.password_hash;
-        }
-        console.log('Password match result:', passwordMatch);
-      } catch (error) {
-        console.error('Password comparison error:', error);
-        passwordMatch = false;
-      }
+      const passwordMatch = password === foundUser.password;
+      console.log('Password match result:', passwordMatch);
       
       if (!passwordMatch) {
         await logLoginAttempt(ipAddress, email, false);
@@ -101,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const userData: User = {
         id: foundUser.id,
         email: foundUser.email,
-        password_hash: foundUser.password_hash,
+        password: foundUser.password,
         role: foundUser.role,
         subscription_days: foundUser.subscription_days,
         allowed_ips: foundUser.allowed_ips,

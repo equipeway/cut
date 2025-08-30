@@ -5,7 +5,7 @@ import {
   updateUser, 
   deleteUser, 
   getSystemStats,
-  getSubscriptionPlans,
+  getAllSubscriptionPlans,
   createSubscriptionPlan,
   updateSubscriptionPlan,
   deleteSubscriptionPlan,
@@ -88,7 +88,7 @@ export function AdminUserManagement() {
       setLoading(true);
       const [usersData, plansData, statsData] = await Promise.all([
         getUsers(),
-        getSubscriptionPlans(),
+        getAllSubscriptionPlans(),
         getSystemStats()
       ]);
       
