@@ -362,15 +362,19 @@ export const updateSubscriptionPlan = async (planId: string, updates: Partial<Su
       .from('subscription_plans')
       .update(updates)
       .eq('id', planId)
-      .select()
-      .maybeSingle();
+      .select();
 
     if (error) {
       console.error('Error updating subscription plan:', error);
       throw error;
     }
 
-    return data;
+    // Check if any rows were returned
+    if (data && data.length > 0) {
+      return data[0];
+    }
+    
+    return null;
   } catch (error) {
     console.error('Error in updateSubscriptionPlan:', error);
     throw error;
