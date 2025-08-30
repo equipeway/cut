@@ -110,11 +110,11 @@ export function HomePage() {
       setLoading(true);
       setError(null);
 
-      const plansData = await getSubscriptionPlans();
+      const plansData = getSubscriptionPlans();
       setPlans(plansData);
     } catch (error) {
       console.error('Error loading plans:', error);
-      setError('Erro ao carregar planos. Verifique se o servidor está rodando.');
+      setError('Erro ao carregar planos.');
     } finally {
       setLoading(false);
     }

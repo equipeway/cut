@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  getUsers, 
-  createUser, 
-  updateUser, 
-  deleteUser, 
+  getUsers,
+  createUser,
+  updateUser,
+  deleteUser,
   getSystemStats,
   getAllSubscriptionPlans,
   createSubscriptionPlan,
@@ -85,11 +85,9 @@ export function AdminUserManagement() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [usersData, plansData, statsData] = await Promise.all([
-        getUsers(),
-        getAllSubscriptionPlans(),
-        getSystemStats()
-      ]);
+      const usersData = getUsers();
+      const plansData = getAllSubscriptionPlans();
+      const statsData = getSystemStats();
       
       setUsers(usersData);
       setPlans(plansData);
@@ -105,10 +103,10 @@ export function AdminUserManagement() {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await createUser(newUser);
+      createUser(newUser);
       setNewUser({ email: '', password: '', role: 'user', subscription_days: 0 });
       setShowCreateUser(false);
-      await loadData();
+      loadData();
       addNotification('success', 'Usuário criado com sucesso');
     } catch (error) {
       console.error('Error creating user:', error);
@@ -118,8 +116,8 @@ export function AdminUserManagement() {
 
   const handleUpdateUser = async (userId: string, updates: Partial<User>) => {
     try {
-      await updateUser(userId, updates);
-      await loadData();
+      updateUser(userId, updates);
+      loadData();
       setEditingUser(null);
       addNotification('success', 'Usuário atualizado com sucesso');
     } catch (error) {
@@ -132,8 +130,8 @@ export function AdminUserManagement() {
     if (!confirm('Tem certeza que deseja deletar este usuário?')) return;
     
     try {
-      await deleteUser(userId);
-      await loadData();
+      deleteUser(userId);
+      loadData();
       addNotification('success', 'Usuário deletado com sucesso');
     } catch (error) {
       console.error('Error deleting user:', error);
@@ -144,10 +142,10 @@ export function AdminUserManagement() {
   const handleCreatePlan = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await createSubscriptionPlan(newPlan);
+      createSubscriptionPlan(newPlan);
       setNewPlan({ name: '', days: 30, price: 0, description: '' });
       setShowCreatePlan(false);
-      await loadData();
+      loadData();
       addNotification('success', 'Plano criado com sucesso');
     } catch (error) {
       console.error('Error creating plan:', error);
@@ -157,8 +155,8 @@ export function AdminUserManagement() {
 
   const handleUpdatePlan = async (planId: string, updates: Partial<SubscriptionPlan>) => {
     try {
-      await updateSubscriptionPlan(planId, updates);
-      await loadData();
+      updateSubscriptionPlan(planId, updates);
+      loadData();
       setEditingPlan(null);
       addNotification('success', 'Plano atualizado com sucesso');
     } catch (error) {
@@ -171,8 +169,8 @@ export function AdminUserManagement() {
     if (!confirm('Tem certeza que deseja deletar este plano?')) return;
     
     try {
-      await deleteSubscriptionPlan(planId);
-      await loadData();
+      deleteSubscriptionPlan(planId);
+      loadData();
       addNotification('success', 'Plano deletado com sucesso');
     } catch (error) {
       console.error('Error deleting plan:', error);
@@ -185,10 +183,10 @@ export function AdminUserManagement() {
     if (!user) return;
 
     try {
-      await updateUser(userId, {
+      updateUser(userId, {
         subscription_days: user.subscription_days + days
       });
-      await loadData();
+      loadData();
       addNotification('success', `${days} dias adicionados ao usuário`);
     } catch (error) {
       console.error('Error adding days:', error);

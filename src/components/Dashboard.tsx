@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   ProcessingSession,
-  getUserSession,
+  getUserSessionAPI,
   updateSession
 } from '../lib/api';
 import { AdminUserManagement } from './AdminUserManagement';
@@ -108,7 +108,7 @@ export function Dashboard() {
     if (!user) return;
 
     try {
-      const userSession = await getUserSession(user.id);
+      const userSession = await getUserSessionAPI(user.id);
       setSession(userSession);
       setDatabaseError(null);
     } catch (error) {
@@ -122,7 +122,7 @@ export function Dashboard() {
     if (!session) return;
 
     try {
-      const updatedSession = await updateSession(session.id, updates);
+      const updatedSession = updateSession(session.id, updates);
       if (updatedSession) {
         setSession(updatedSession);
       }
@@ -489,7 +489,7 @@ export function Dashboard() {
 
       {showAdmin && isAdmin ? (
         <div className="max-w-7xl mx-auto p-6">
-          {isDatabaseReady() ? (
+          {true ? (
             <div className="bg-gray-900/60 backdrop-blur-xl rounded-3xl border border-purple-500/20 shadow-2xl overflow-hidden">
               {/* Enhanced Admin Header */}
               <div className="bg-gradient-to-r from-purple-600/20 to-purple-800/20 p-8 border-b border-purple-500/20">
