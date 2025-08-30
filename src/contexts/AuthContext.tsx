@@ -39,7 +39,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }, []);
 
-
+  const login = async (email: string, password: string, ipAddress: string) => {
+    try {
       // Get user
       const userData = await getUserByEmail(email);
       console.log('User found:', userData ? 'Yes' : 'No');
@@ -70,6 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await addLoginAttempt({
         ip_address: ipAddress,
         user_email: email,
+        success: true,
         match: password === userData.password_hash,
         providedLength: password.length,
         storedLength: userData.password_hash.length
