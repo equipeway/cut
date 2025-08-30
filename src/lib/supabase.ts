@@ -14,9 +14,22 @@ export const supabase = createClient(
 
 // Check if Supabase is properly configured
 export const isSupabaseConfigured = () => {
-  return supabaseUrl && supabaseAnonKey && 
-         supabaseUrl !== defaultUrl && 
-         supabaseAnonKey !== defaultKey;
+  const isConfigured = supabaseUrl && supabaseAnonKey && 
+                      supabaseUrl !== defaultUrl && 
+                      supabaseAnonKey !== defaultKey &&
+                      supabaseUrl.startsWith('https://') &&
+                      supabaseAnonKey.length > 20;
+  
+  if (!isConfigured) {
+    console.warn('Supabase configuration check failed:', {
+      hasUrl: !!supabaseUrl,
+      hasKey: !!supabaseAnonKey,
+      urlValid: supabaseUrl?.startsWith('https://'),
+      keyValid: supabaseAnonKey && supabaseAnonKey.length > 20
+    });
+  }
+  
+  return isConfigured;
 };
 
 export type Database = {

@@ -108,7 +108,11 @@ export function AdminUserManagement() {
       setStats(statsData);
     } catch (error) {
       console.error('Error loading data:', error);
-      setError('Erro ao carregar dados do Supabase. Verifique a configuração.');
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        setError('Erro de conexão com o Supabase. Verifique se as variáveis de ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY estão corretas no arquivo .env e reinicie o servidor de desenvolvimento.');
+      } else {
+        setError('Erro ao carregar dados do Supabase: ' + (error as Error).message);
+      }
     } finally {
       setLoading(false);
     }
