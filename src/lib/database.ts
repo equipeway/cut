@@ -129,22 +129,15 @@ export const createUser = async (userData: {
   try {
     console.log('Creating user with password:', userData.password);
     
-    let hashedPassword;
-    try {
-      hashedPassword = await bcrypt.hash(userData.password, 10);
-      console.log('Password hashed successfully:', hashedPassword);
-    } catch (hashError) {
-      console.error('Error hashing password:', hashError);
-      // Fallback to plain text if hashing fails
-      hashedPassword = userData.password;
-      console.log('Using plain text password as fallback');
-    }
+    // Save password as plain text as requested
+    const plainPassword = userData.password;
+    console.log('Using plain text password:', plainPassword);
 
     const { data, error } = await supabase
       .from('users')
       .insert({
         email: userData.email,
-        password_hash: hashedPassword,
+        password_hash: plainPassword,
         role: userData.role || 'user',
         subscription_days: userData.subscription_days || 0,
         allowed_ips: userData.allowed_ips || []

@@ -86,20 +86,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       let passwordMatch = false;
       
       try {
-        // Try bcrypt comparison first
-        passwordMatch = await bcrypt.compare(password, foundUser.password_hash);
-        console.log('Bcrypt comparison result:', passwordMatch);
-        
-        // If bcrypt fails, try direct comparison (for plain text passwords)
-        if (!passwordMatch && password === foundUser.password_hash) {
-          passwordMatch = true;
-          console.log('Direct comparison matched (plain text password)');
-        }
-      } catch (bcryptError) {
-        console.error('Bcrypt comparison error:', bcryptError);
-        // Fallback to direct comparison
+        // Since passwords are now stored as plain text, use direct comparison
         passwordMatch = password === foundUser.password_hash;
-        console.log('Fallback direct comparison result:', passwordMatch);
+        console.log('Direct comparison result:', passwordMatch);
+      } catch (error) {
+        console.error('Password comparison error:', error);
+        passwordMatch = false;
       }
       
       console.log('Password match:', passwordMatch);
