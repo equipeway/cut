@@ -534,14 +534,20 @@ export function AdminUserManagement() {
                         {user.is_banned ? (
                           <button
                             onClick={async () => {
-                              const result = await updateUser(user.id, { is_banned: false });
-                              if (result) {
-                                loadData();
-                                setSuccessMessage(`Usuário ${user.email} foi desbanido com sucesso!`);
-                                setTimeout(() => setSuccessMessage(null), 5000);
-                              } else {
-                                alert('Usuário não encontrado. A lista será atualizada.');
-                                loadData();
+                              if (!isSupabaseConfigured()) return;
+                              try {
+                                const result = await updateUser(user.id, { is_banned: false });
+                                if (result) {
+                                  await loadData();
+                                  setSuccessMessage(`Usuário ${user.email} foi desbanido com sucesso!`);
+                                  setTimeout(() => setSuccessMessage(null), 5000);
+                                } else {
+                                  alert('Usuário não encontrado. A lista será atualizada.');
+                                  await loadData();
+                                }
+                              } catch (error) {
+                                console.error('Erro ao desbanir usuário:', error);
+                                alert('Erro ao desbanir usuário: ' + (error as Error).message);
                               }
                             }}
                             title="Desbanir usuário"
@@ -552,15 +558,19 @@ export function AdminUserManagement() {
                         ) : (
                           <button
                             onClick={async () => {
-                              if (!isSupabaseConfigured()) return;
-                              const result = await updateUser(user.id, { is_banned: true });
-                              if (result) {
-                                loadData();
-                                setSuccessMessage(`Usuário ${user.email} foi banido com sucesso!`);
-                                setTimeout(() => setSuccessMessage(null), 5000);
-                              } else {
-                                alert('Usuário não encontrado. A lista será atualizada.');
-                                loadData();
+                              try {
+                                const result = await updateUser(user.id, { is_banned: true });
+                                if (result) {
+                                  await loadData();
+                                  setSuccessMessage(`Usuário ${user.email} foi banido com sucesso!`);
+                                  setTimeout(() => setSuccessMessage(null), 5000);
+                                } else {
+                                  alert('Usuário não encontrado. A lista será atualizada.');
+                                  await loadData();
+                                }
+                              } catch (error) {
+                                console.error('Erro ao banir usuário:', error);
+                                alert('Erro ao banir usuário: ' + (error as Error).message);
                               }
                             }}
                             title="Banir usuário"
@@ -571,11 +581,17 @@ export function AdminUserManagement() {
                         )}
                         <button
                           onClick={async () => {
-                            if (!isSupabaseConfigured()) return;
-                            if (!isSupabaseConfigured()) return;
-                            if (confirm('Tem certeza que deseja deletar este usuário?')) {
-                              await deleteUser(user.id);
-                              loadData();
+                            try {
+                              if (!isSupabaseConfigured()) return;
+                              if (confirm(`Tem certeza que deseja deletar o usuário ${user.email}?`)) {
+                                await deleteUser(user.id);
+                                await loadData();
+                                setSuccessMessage(`Usuário ${user.email} foi deletado com sucesso!`);
+                                setTimeout(() => setSuccessMessage(null), 5000);
+                              }
+                            } catch (error) {
+                              console.error('Erro ao deletar usuário:', error);
+                              alert('Erro ao deletar usuário: ' + (error as Error).message);
                             }
                           }}
                           title="Deletar usuário"
