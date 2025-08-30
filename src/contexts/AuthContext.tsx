@@ -18,14 +18,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        // Check if backend is available
-        const backendHealthy = await checkHealth();
-        if (!backendHealthy) {
-          console.warn('Backend não está disponível');
-          setLoading(false);
-          return;
-        }
-
         const savedUser = localStorage.getItem('terramail_user');
         if (savedUser) {
           const userData = JSON.parse(savedUser);

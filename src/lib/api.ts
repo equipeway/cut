@@ -1,208 +1,88 @@
-const API_BASE_URL = 'http://localhost:3001/api';
+// Direct database operations - no API calls needed
+import {
+  getDatabase,
+  getUserByEmail,
+  getUserById,
+  getUsers,
+  createUser,
+  updateUser,
+  deleteUser,
+  getUserSession,
+  createSession,
+  updateSession,
+  getSubscriptionPlans,
+  getAllSubscriptionPlans,
+  createSubscriptionPlan,
+  updateSubscriptionPlan,
+  deleteSubscriptionPlan,
+  createPurchase,
+  getSystemStats,
+  initDatabase,
+  User,
+  ProcessingSession,
+  SubscriptionPlan,
+  UserPurchase
+} from './database';
 
-export interface User {
-  id: string;
-  email: string;
-  role: 'user' | 'admin';
-  subscription_days: number;
-  allowed_ips: string[];
-  is_banned: boolean;
-  created_at: string;
-  updated_at: string;
-}
+// Export types
+export type { User, ProcessingSession, SubscriptionPlan, UserPurchase };
 
-export interface ProcessingSession {
-  id: string;
-  user_id: string;
-  approved_count: number;
-  rejected_count: number;
-  loaded_count: number;
-  tested_count: number;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface SubscriptionPlan {
-  id: string;
-  name: string;
-  days: number;
-  price: number;
-  description: string;
-  is_active: boolean;
-  created_at: string;
-}
-
-export interface UserPurchase {
-  id: string;
-  user_id: string;
-  plan_id: string;
-  days_added: number;
-  amount_paid: number;
-  payment_method: string;
-  created_at: string;
-  plan?: SubscriptionPlan;
-}
-
-// Auth API
+// Auth operations
 export const loginUser = async (email: string, password: string): Promise<{ user: User }> => {
-  const response = await fetch(`${API_BASE_URL}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password })
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Erro no login');
+  const user = getUserByEmail(email);
+  
+  if (!user) {
+    throw new Error('Email não encontrado');
   }
 
-  return response.json();
-};
-
-// User API
-export const getUsers = async (): Promise<User[]> => {
-  const response = await fetch(`${API_BASE_URL}/users`);
-  if (!response.ok) throw new Error('Erro ao buscar usuários');
-  return response.json();
-};
-
-export const createUser = async (userData: {
-  email: string;
-  password: string;
-  role?: 'user' | 'admin';
-  subscription_days?: number;
-}): Promise<User> => {
-  const response = await fetch(`${API_BASE_URL}/users`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(userData)
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Erro ao criar usuário');
+  if (user.password !== password) {
+    throw new Error('Senha incorreta');
   }
 
-  return response.json();
-};
-
-export const updateUser = async (userId: string, updates: Partial<User>): Promise<User> => {
-  const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(updates)
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Erro ao atualizar usuário');
+  if (user.is_banned) {
+    throw new Error('Conta banida');
   }
 
-  return response.json();
+  // Return user without password
+  const { password: _, ...userWithoutPassword } = user;
+  return { user: userWithoutPassword as User };
 };
 
-export const deleteUser = async (userId: string): Promise<void> => {
-  const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
-    method: 'DELETE'
-  });
+// User operations
+export { getUsers, createUser, updateUser, deleteUser };
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Erro ao deletar usuário');
+// Session operations
+export const getUserSessionAPI = async (userId: string): Promise<ProcessingSession> => {
+  let session = getUserSession(userId);
+  if (!session) {
+    session = createSession(userId);
   }
+  return session;
 };
 
-// Session API
-export const getUserSession = async (userId: string): Promise<ProcessingSession> => {
-  const response = await fetch(`${API_BASE_URL}/sessions/${userId}`);
-  if (!response.ok) throw new Error('Erro ao buscar sessão');
-  return response.json();
+export { updateSession };
+
+// Plan operations
+export { 
+  getSubscriptionPlans, 
+  getAllSubscriptionPlans, 
+  createSubscriptionPlan, 
+  updateSubscriptionPlan, 
+  deleteSubscriptionPlan 
 };
 
-export const updateSession = async (sessionId: string, updates: Partial<ProcessingSession>): Promise<ProcessingSession> => {
-  const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(updates)
-  });
-
-  if (!response.ok) throw new Error('Erro ao atualizar sessão');
-  return response.json();
-};
-
-// Plans API
-export const getSubscriptionPlans = async (): Promise<SubscriptionPlan[]> => {
-  const response = await fetch(`${API_BASE_URL}/plans`);
-  if (!response.ok) throw new Error('Erro ao buscar planos');
-  return response.json();
-};
-
-export const getAllSubscriptionPlans = async (): Promise<SubscriptionPlan[]> => {
-  const response = await fetch(`${API_BASE_URL}/plans/all`);
-  if (!response.ok) throw new Error('Erro ao buscar todos os planos');
-  return response.json();
-};
-
-export const createSubscriptionPlan = async (plan: {
-  name: string;
-  days: number;
-  price: number;
-  description?: string;
-}): Promise<SubscriptionPlan> => {
-  const response = await fetch(`${API_BASE_URL}/plans`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(plan)
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Erro ao criar plano');
-  }
-
-  return response.json();
-};
-
-export const updateSubscriptionPlan = async (planId: string, updates: Partial<SubscriptionPlan>): Promise<SubscriptionPlan> => {
-  const response = await fetch(`${API_BASE_URL}/plans/${planId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(updates)
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Erro ao atualizar plano');
-  }
-
-  return response.json();
-};
-
-export const deleteSubscriptionPlan = async (planId: string): Promise<void> => {
-  const response = await fetch(`${API_BASE_URL}/plans/${planId}`, {
-    method: 'DELETE'
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Erro ao deletar plano');
-  }
-};
-
-// Stats API
-export const getSystemStats = async () => {
-  const response = await fetch(`${API_BASE_URL}/stats`);
-  if (!response.ok) throw new Error('Erro ao buscar estatísticas');
-  return response.json();
-};
+// Stats
+export { getSystemStats };
 
 // Health check
 export const checkHealth = async (): Promise<boolean> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/health`);
-    return response.ok;
+    getDatabase();
+    return true;
   } catch (error) {
     return false;
   }
 };
+
+// Initialize on import
+initDatabase();
