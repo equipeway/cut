@@ -133,12 +133,8 @@ export const deleteUser = async (userId: string): Promise<void> => {
 };
 
 // Authentication
-export const verifyPassword = async (password: string, hash: string): Promise<boolean> => {
-  try {
-    // For demo purposes, use simple password comparison
-    // In production, you would use proper bcrypt hashing
+    // Simple password verification for demo
     const isValid = password === hash;
-    console.log('Password verification:', { password, hash, isValid });
     return isValid;
   } catch (error) {
     console.error('Password verification error:', error);
