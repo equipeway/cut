@@ -487,55 +487,54 @@ export function Dashboard() {
         </div>
       </header>
 
+      {/* Main Content */}
       {showAdmin && isAdmin ? (
         <div className="max-w-7xl mx-auto p-6">
-          {true ? (
-            <div className="bg-gray-900/60 backdrop-blur-xl rounded-3xl border border-purple-500/20 shadow-2xl overflow-hidden">
-              {/* Enhanced Admin Header */}
-              <div className="bg-gradient-to-r from-purple-600/20 to-purple-800/20 p-8 border-b border-purple-500/20">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-700 rounded-2xl flex items-center justify-center shadow-lg">
-                      <Settings className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h2 className="text-2xl font-bold text-white">Painel Administrativo</h2>
-                      <p className="text-purple-300 text-sm">Controle total do sistema</p>
-                    </div>
+          <div className="bg-gray-900/60 backdrop-blur-xl rounded-3xl border border-purple-500/20 shadow-2xl overflow-hidden">
+            {/* Enhanced Admin Header */}
+            <div className="bg-gradient-to-r from-purple-600/20 to-purple-800/20 p-8 border-b border-purple-500/20">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-700 rounded-2xl flex items-center justify-center shadow-lg">
+                    <Settings className="w-6 h-6 text-white" />
                   </div>
-                  <button
-                    onClick={() => setShowAdmin(false)}
-                    className="text-gray-400 hover:text-white p-3 hover:bg-gray-800/50 rounded-xl transition-all"
-                  >
-                    <X className="w-6 h-6" />
-                  </button>
+                  <div>
+                    <h2 className="text-2xl font-bold text-white">Painel Administrativo</h2>
+                    <p className="text-purple-300 text-sm">Controle total do sistema</p>
+                  </div>
                 </div>
+                <button
+                  onClick={() => setShowAdmin(false)}
+                  className="text-gray-400 hover:text-white p-3 hover:bg-gray-800/50 rounded-xl transition-all"
+                >
+                  <X className="w-6 h-6" />
+                </button>
               </div>
+            </div>
 
-              {/* System Info Boxes */}
-              <div className="p-8 border-b border-purple-500/10">
-                <h3 className="text-white font-semibold mb-6 flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-purple-400" />
-                  Status do Sistema
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {systemInfoBoxes.map(box => (
-                    <div key={box.id} className={`${getInfoBoxColors(box.color)} border rounded-xl p-4 backdrop-blur-sm`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <box.icon className="w-5 h-5" />
-                        <span className="text-xs opacity-70">{box.description}</span>
-                      </div>
-                      <div className="text-2xl font-bold text-white mb-1">{box.value}</div>
-                      <div className="text-sm font-medium">{box.title}</div>
+            {/* System Info Boxes */}
+            <div className="p-8 border-b border-purple-500/10">
+              <h3 className="text-white font-semibold mb-6 flex items-center gap-2">
+                <Activity className="w-5 h-5 text-purple-400" />
+                Status do Sistema
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {systemInfoBoxes.map(box => (
+                  <div key={box.id} className={`${getInfoBoxColors(box.color)} border rounded-xl p-4 backdrop-blur-sm`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <box.icon className="w-5 h-5" />
+                      <span className="text-xs opacity-70">{box.description}</span>
                     </div>
-                  ))}
-                </div>
+                    <div className="text-2xl font-bold text-white mb-1">{box.value}</div>
+                    <div className="text-sm font-medium">{box.title}</div>
+                  </div>
+                ))}
               </div>
+            </div>
 
-              {/* Admin Content */}
-              <div className="p-8">
-                <AdminUserManagement />
-              </div>
+            {/* Admin Content */}
+            <div className="p-8">
+              <AdminUserManagement />
             </div>
           </div>
         </div>
