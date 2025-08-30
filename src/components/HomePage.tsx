@@ -1,98 +1,49 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getSubscriptionPlans, SubscriptionPlan } from '../lib/database';
-import { isSupabaseConfigured } from '../lib/supabase';
-import { 
-  Check, 
-  Star, 
-  Zap, 
-  Crown, 
-  Shield,
-  Clock,
-  TrendingUp,
-  Users,
-  ArrowRight,
-  LogIn,
-  ExternalLink,
-  Sparkles
-} from 'lucide-react';
-
-// Mock plans for demo
-const mockPlans: SubscriptionPlan[] = [
-  {
-    id: '1',
-    name: 'Básico',
-    days: 7,
-    price: 9.90,
-    description: 'Ideal para testes',
-    is_active: true,
-    created_at: new Date().toISOString()
-  },
-  {
-    id: '2',
-    name: 'Standard',
-    days: 30,
-    price: 29.90,
-    description: 'Uso regular',
-    is_active: true,
-    created_at: new Date().toISOString()
-  },
-  {
-    id: '3',
-    name: 'Premium',
-    days: 90,
-    price: 79.90,
-    description: 'Melhor custo-benefício',
-    is_active: true,
-    created_at: new Date().toISOString()
-  },
-  {
-    id: '4',
-    name: 'Ultimate',
-    days: 365,
-    price: 299.90,
-    description: 'Acesso anual completo',
-    is_active: true,
-    created_at: new Date().toISOString()
-  }
-];
+import { Shield, LogIn, Crown, Clock, Check, ExternalLink, Zap, Users, ArrowRight } from 'lucide-react';
+import { getSubscriptionPlans, isSupabaseConfigured } from '../lib/supabase';
+import { mockPlans } from '../data/mockPlans';
+import type { SubscriptionPlan } from '../types';
 
 interface PlanCardProps {
   plan: SubscriptionPlan;
   isPopular?: boolean;
 }
 
-function PlanCard({ plan, isPopular }: PlanCardProps) {
-  const getPlanIcon = (name: string) => {
-    if (name.includes('Básico')) return <Shield className="w-5 h-5" />;
-    if (name.includes('Standard')) return <Star className="w-5 h-5" />;
-    if (name.includes('Premium')) return <Zap className="w-5 h-5" />;
-    if (name.includes('Ultimate')) return <Crown className="w-5 h-5" />;
-    return <Shield className="w-5 h-5" />;
-  };
+function getPlanIcon(planName: string) {
+  switch (planName.toLowerCase()) {
+    case 'básico':
+      return <Shield className="w-6 h-6" />;
+    case 'premium':
+      return <Zap className="w-6 h-6" />;
+    case 'profissional':
+      return <Users className="w-6 h-6" />;
+    default:
+      return <Shield className="w-6 h-6" />;
+  }
+}
 
-  const handlePurchase = () => {
-    window.open('https://t.me/monetizei', '_blank');
-  };
-
+function PlanCard({ plan, isPopular = false }: PlanCardProps) {
   const features = [
-    'Processamento ilimitado',
+    'Processamento seguro',
     'Suporte técnico',
-    'API completa',
+    'Dashboard completo',
     'Relatórios detalhados'
   ];
 
+  const handlePurchase = () => {
+    // Handle purchase logic here
+    console.log('Purchase plan:', plan.name);
+  };
+
   return (
-    <div className={`relative bg-gray-900/80 backdrop-blur-sm rounded-xl border p-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group ${
-      isPopular 
-        ? 'border-purple-500/50 shadow-purple-500/20' 
-        : 'border-gray-700/50 hover:border-purple-500/30'
+    <div className={`relative bg-gray-900 rounded-xl border p-6 ${
+      isPopular ? 'border-purple-500' : 'border-gray-800'
     }`}>
       {isPopular && (
         <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-          <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
-            <Sparkles className="w-3 h-3" />
-            POPULAR
+          <div className="bg-purple-500 text-white px-3 py-1 rounded-full text-xs font-medium">
+            Mais Popular
           </div>
         </div>
       )}
