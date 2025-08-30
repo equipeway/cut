@@ -8,6 +8,7 @@ import type { SubscriptionPlan } from '../types';
 interface PlanCardProps {
   plan: SubscriptionPlan;
   isPopular?: boolean;
+}
 
 function getPlanIcon(planName: string) {
   switch (planName.toLowerCase()) {
