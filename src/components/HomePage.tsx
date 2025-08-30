@@ -198,31 +198,6 @@ export function HomePage() {
           </div>
         </div>
 
-        {/* Features */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20">
-          <div className="text-center bg-gray-900/50 backdrop-blur-xl rounded-2xl p-8 border border-purple-500/10 hover:scale-105 transition-all duration-300 group">
-            <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg group-hover:scale-110 transition-transform">
-              <Shield className="w-6 h-6 text-purple-500" />
-            </div>
-            <h4 className="text-xl font-bold mb-3 text-white">Máxima Segurança</h4>
-            <p className="text-gray-300 text-sm leading-relaxed">Proteção avançada de dados com criptografia de ponta</p>
-          </div>
-          <div className="text-center bg-gray-900/50 backdrop-blur-xl rounded-2xl p-8 border border-purple-500/10 hover:scale-105 transition-all duration-300 group">
-            <div className="w-16 h-16 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg group-hover:scale-110 transition-transform">
-              <Zap className="w-6 h-6 text-purple-500" />
-            </div>
-            <h4 className="text-xl font-bold mb-3 text-white">Ultra Rápido</h4>
-            <p className="text-gray-300 text-sm leading-relaxed">Performance otimizada para máxima velocidade</p>
-          </div>
-          <div className="text-center bg-gray-900/50 backdrop-blur-xl rounded-2xl p-8 border border-purple-500/10 hover:scale-105 transition-all duration-300 group">
-            <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg group-hover:scale-110 transition-transform">
-              <Users className="w-6 h-6 text-purple-500" />
-            </div>
-            <h4 className="text-xl font-bold mb-3 text-white">Suporte Premium</h4>
-            <p className="text-gray-300 text-sm leading-relaxed">Atendimento especializado 24/7 para sua tranquilidade</p>
-          </div>
-        </div>
-
         {/* CTA */}
         <div className="text-center bg-gray-900/60 backdrop-blur-xl rounded-3xl border border-purple-500/20 p-16 shadow-2xl">
           <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-purple-700 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-lg">
