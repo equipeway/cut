@@ -18,7 +18,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Usuários hardcoded para funcionar imediatamente
+// Usuários hardcoded com UUIDs válidos
 const DEMO_USERS = [
   {
     id: '550e8400-e29b-41d4-a716-446655440001',
@@ -43,29 +43,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('terramail_user');
-    if (savedUser) {
-      try {
-        const parsedUser = JSON.parse(savedUser);
-        // Validate that the user ID is a valid UUID
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-        if (parsedUser.id && uuidRegex.test(parsedUser.id)) {
-          setUser(parsedUser);
-        } else {
-          console.warn('Invalid UUID found in localStorage, clearing user data');
-          localStorage.removeItem('terramail_user');
-        }
-      } catch (error) {
-        localStorage.removeItem('terramail_user');
-      }
-    }
+    // Sempre limpar localStorage no início para evitar IDs inválidos
+    localStorage.removeItem('terramail_user');
     setLoading(false);
   }, []);
 
   const login = async (email: string, password: string) => {
-    // Limpar localStorage para evitar IDs inválidos
-    localStorage.removeItem('terramail_user');
-    
     console.log('Tentando login com:', { email, password });
     
     // Buscar usuário nos dados hardcoded
