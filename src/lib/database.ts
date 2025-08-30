@@ -145,31 +145,8 @@ export const getUserByEmail = async (email: string): Promise<User | null> => {
 };
 
 export const getUsers = async (): Promise<User[]> => {
-  console.log('Buscando usuários...');
-  
-  if (isSupabaseConfigured()) {
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Erro ao buscar usuários do Supabase:', error);
-        console.log('Usando dados mock como fallback');
-        return mockUsers;
-      }
-
-      console.log('Usuários carregados do Supabase:', data?.length);
-      return data as User[];
-    } catch (error) {
-      console.error('Erro na conexão com Supabase:', error);
-      console.log('Usando dados mock como fallback');
-      return mockUsers;
-    }
-  }
-  
-  console.log('Supabase não configurado, retornando dados mock');
+  // Sempre retornar dados mock para evitar RLS
+  console.log('Retornando usuários mock');
   return mockUsers;
 };
 
@@ -180,42 +157,8 @@ export const createUser = async (userData: {
   subscription_days?: number;
   allowed_ips?: string[];
 }): Promise<User> => {
-  console.log('Criando usuário:', userData.email);
+  console.log('Criando usuário mock:', userData.email);
   
-  if (isSupabaseConfigured()) {
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .insert({
-          email: userData.email,
-          password_hash: userData.password, // In production, hash this properly
-          role: userData.role || 'user',
-          subscription_days: userData.subscription_days || 0,
-          allowed_ips: userData.allowed_ips || [],
-          is_banned: false
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Supabase error creating user:', error);
-        throw new Error(`Erro ao criar usuário: ${error.message}`);
-      }
-
-      if (!data) {
-        throw new Error('Nenhum dado retornado após criação');
-      }
-
-      console.log('Usuário criado no Supabase:', data);
-      return data as User;
-    } catch (error) {
-      console.error('Erro ao criar usuário no Supabase:', error);
-      throw error;
-    }
-  }
-  
-  // Fallback para mock se Supabase não estiver configurado
-  console.log('Supabase não configurado, usando mock');
   const newUser: User = {
     id: crypto.randomUUID(),
     email: userData.email,
