@@ -65,15 +65,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
+    console.log('Login attempt for email:', email);
+
     try {
       const foundUser = await getUserByEmail(email);
       
+      console.log('User found in database:', foundUser ? 'Yes' : 'No');
+      
       if (!foundUser) {
         await logLoginAttempt(ipAddress, email, false);
+        console.log('Login failed: Email not found');
         return { success: false, error: 'Email não encontrado' };
       }
 
+      console.log('Comparing password...');
       const passwordMatch = await bcrypt.compare(password, foundUser.password_hash);
+      console.log('Password match:', passwordMatch);
+      
       if (!passwordMatch) {
         await logLoginAttempt(ipAddress, email, false);
         return { success: false, error: 'Senha incorreta' };
@@ -85,6 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Login successful
+      console.log('Login successful for user:', foundUser.email);
       const userData: User = {
         id: foundUser.id,
         email: foundUser.email,

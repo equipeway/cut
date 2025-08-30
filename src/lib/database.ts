@@ -68,6 +68,8 @@ export const getUserByEmail = async (email: string): Promise<User | null> => {
     throw new Error('Supabase not configured. Please connect to Supabase to use this feature.');
   }
 
+  console.log('getUserByEmail - Searching for email:', email);
+
   try {
     const { data, error } = await supabase
       .from('users')
@@ -75,11 +77,14 @@ export const getUserByEmail = async (email: string): Promise<User | null> => {
       .eq('email', email)
       .maybeSingle();
 
+    console.log('getUserByEmail - Supabase response:', { data, error });
+
     if (error) {
       console.error('Error fetching user by email:', error);
       throw error;
     }
 
+    console.log('getUserByEmail - Found user:', data ? 'Yes' : 'No');
     return data;
   } catch (error) {
     console.error('Error in getUserByEmail:', error);
