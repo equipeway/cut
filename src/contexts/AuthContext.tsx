@@ -2,12 +2,12 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
   User, 
   getUserByEmail, 
-  updateUser, 
   addLoginAttempt, 
   getRecentFailedAttempts, 
   isIPBanned, 
-  banIP 
-} from '../lib/storage';
+  banIP,
+  verifyPassword
+} from '../lib/database';
 
 interface AuthContextType {
   user: User | null;
@@ -40,22 +40,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string, ipAddress: string) => {
     try {
       // Check if IP is banned
-      if (isIPBanned(ipAddress)) {
+      if (await isIPBanned(ipAddress)) {
         return { success: false, error: 'IP address is banned' };
       }
 
       // Check recent failed attempts for this IP
-      const recentAttempts = getRecentFailedAttempts(ipAddress, 1);
+      const recentAttempts = await getRecentFailedAttempts(ipAddress, 1);
       if (recentAttempts.length >= 5) {
         // Auto-ban IP
-        banIP(ipAddress, 'Too many failed login attempts', 24);
+        await banIP(ipAddress, 'Too many failed login attempts', 24);
         return { success: false, error: 'Too many failed attempts. IP banned for 24 hours.' };
       }
 
       // Get user data
-      const userData = getUserByEmail(email);
+      const userData = await getUserByEmail(email);
       if (!userData) {
-        addLoginAttempt({
+        await addLoginAttempt({
           ip_address: ipAddress,
           user_email: email,
           success: false
@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Check IP restrictions
       if (userData.allowed_ips.length > 0 && !userData.allowed_ips.includes(ipAddress)) {
-        addLoginAttempt({
+        await addLoginAttempt({
           ip_address: ipAddress,
           user_email: email,
           success: false
@@ -77,9 +77,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: 'IP address not allowed' };
       }
 
-      // Simple password check (in production, use proper bcrypt)
-      if (password !== 'admin123') {
-        addLoginAttempt({
+      // Verify password
+      const isValidPassword = await verifyPassword(password, userData.password_hash);
+      if (!isValidPassword) {
+        await addLoginAttempt({
           ip_address: ipAddress,
           user_email: email,
           success: false
@@ -88,7 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Log successful attempt
-      addLoginAttempt({
+      await addLoginAttempt({
         ip_address: ipAddress,
         user_email: email,
         success: true

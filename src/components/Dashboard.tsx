@@ -1,35 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { 
-  User,
   ProcessingSession,
-  getUsers,
-  updateUser,
   getUserSession,
   createSession,
-  updateSession,
-  getBannedIPs,
-  getLoginAttempts,
-  banIP as banIPStorage,
-  unbanIP
-} from '../lib/storage';
+  updateSession
+} from '../lib/database';
+import { AdminUserManagement } from './AdminUserManagement';
 import { 
   Play, 
   Square, 
   LogOut, 
   Settings, 
-  Users, 
-  Shield, 
-  Activity, 
   X, 
-  Plus, 
-  Minus,
   CheckCircle,
   XCircle,
   Clock,
   Database,
   TrendingUp,
-  AlertTriangle
+  AlertTriangle,
+  Shield
 } from 'lucide-react';
 
 interface ProcessingResult {
@@ -77,20 +67,20 @@ export function Dashboard() {
     }, 5000);
   };
 
-  const loadSession = () => {
+  const loadSession = async () => {
     if (!user) return;
 
-    let userSession = getUserSession(user.id);
+    let userSession = await getUserSession(user.id);
     if (!userSession) {
-      userSession = createSession(user.id);
+      userSession = await createSession(user.id);
     }
     setSession(userSession);
   };
 
-  const updateSessionData = (updates: Partial<ProcessingSession>) => {
+  const updateSessionData = async (updates: Partial<ProcessingSession>) => {
     if (!session) return;
 
-    const updatedSession = updateSession(session.id, updates);
+    const updatedSession = await updateSession(session.id, updates);
     if (updatedSession) {
       setSession(updatedSession);
     }
@@ -107,7 +97,7 @@ export function Dashboard() {
     setResults([]);
     setProgress(0);
     
-    updateSessionData({
+    await updateSessionData({
       loaded_count: lines.length,
       tested_count: 0,
       approved_count: 0,
@@ -181,7 +171,7 @@ export function Dashboard() {
           const newRejected = session.rejected_count + (!approved ? 1 : 0);
           const newTested = session.tested_count + 1;
 
-          updateSessionData({
+          await updateSessionData({
             approved_count: newApproved,
             rejected_count: newRejected,
             tested_count: newTested
@@ -215,7 +205,7 @@ export function Dashboard() {
           const newRejected = session.rejected_count + 1;
           const newTested = session.tested_count + 1;
 
-          updateSessionData({
+          await updateSessionData({
             rejected_count: newRejected,
             tested_count: newTested
           });
@@ -226,7 +216,7 @@ export function Dashboard() {
     setIsProcessing(false);
     setCurrentItem('');
     setProgress(100);
-    updateSessionData({ is_active: false });
+    await updateSessionData({ is_active: false });
     
     const finalResults = results.length > 0 ? results : [];
     const approvedCount = finalResults.filter(r => r.approved).length;
@@ -340,7 +330,28 @@ export function Dashboard() {
       </header>
 
       {showAdmin && isAdmin ? (
-        <AdminPanel onClose={() => setShowAdmin(false)} />
+        <div className="max-w-7xl mx-auto p-6">
+          <div className="bg-gray-900/50 backdrop-blur-xl rounded-2xl border border-purple-500/20 shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-purple-500/20">
+              <h2 className="text-xl font-bold text-white flex items-center gap-3">
+                <Settings className="w-6 h-6 text-purple-400" />
+                Painel Administrativo
+              </h2>
+              <button
+                onClick={() => setShowAdmin(false)}
+                className="text-gray-400 hover:text-white p-2 hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Admin Content */}
+            <div className="p-6">
+              <AdminUserManagement />
+            </div>
+          </div>
+        </div>
       ) : (
         <main className="max-w-7xl mx-auto p-6">
           <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
@@ -525,244 +536,6 @@ export function Dashboard() {
           </div>
         </main>
       )}
-    </div>
-  );
-}
-
-function AdminPanel({ onClose }: { onClose: () => void }) {
-  const [users, setUsers] = useState<User[]>([]);
-  const [bannedIPs, setBannedIPs] = useState<any[]>([]);
-  const [loginAttempts, setLoginAttempts] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'users' | 'bans' | 'attempts'>('users');
-
-  useEffect(() => {
-    loadAdminData();
-  }, []);
-
-  const loadAdminData = () => {
-    setUsers(getUsers());
-    setBannedIPs(getBannedIPs());
-    setLoginAttempts(getLoginAttempts().slice(-50));
-  };
-
-  const banUser = (userId: string) => {
-    updateUser(userId, { is_banned: true });
-    loadAdminData();
-  };
-
-  const unbanUser = (userId: string) => {
-    updateUser(userId, { is_banned: false });
-    loadAdminData();
-  };
-
-  const extendSubscription = (userId: string, days: number) => {
-    const user = users.find(u => u.id === userId);
-    if (user) {
-      updateUser(userId, { subscription_days: user.subscription_days + days });
-      loadAdminData();
-    }
-  };
-
-  const banIP = (ipAddress: string) => {
-    banIPStorage(ipAddress, 'Manually banned by admin', 24);
-    loadAdminData();
-  };
-
-  const tabs = [
-    { key: 'users', label: 'Usuários', icon: Users },
-    { key: 'bans', label: 'IPs Banidos', icon: Shield },
-    { key: 'attempts', label: 'Log de Login', icon: Activity }
-  ];
-
-  return (
-    <div className="max-w-7xl mx-auto p-6">
-      <div className="bg-gray-900/50 backdrop-blur-xl rounded-2xl border border-purple-500/20 shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-purple-500/20">
-          <h2 className="text-xl font-bold text-white flex items-center gap-3">
-            <Settings className="w-6 h-6 text-purple-400" />
-            Painel Administrativo
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white p-2 hover:bg-gray-800 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Tab Navigation */}
-        <div className="flex border-b border-purple-500/20">
-          {tabs.map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key as any)}
-              className={`px-6 py-4 font-medium text-sm transition-all flex items-center gap-2 border-b-2 ${
-                activeTab === tab.key
-                  ? 'border-purple-500 text-purple-400 bg-purple-500/10'
-                  : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/50'
-              }`}
-            >
-              <tab.icon className="w-4 h-4" />
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Tab Content */}
-        <div className="p-6">
-          {activeTab === 'users' && (
-            <div className="space-y-6">
-              <div className="overflow-hidden rounded-xl border border-purple-500/20 bg-gray-800/30">
-                <table className="w-full">
-                  <thead className="bg-gray-800/50">
-                    <tr>
-                      <th className="text-left text-purple-300 font-semibold py-4 px-6 text-sm">Email</th>
-                      <th className="text-left text-purple-300 font-semibold py-4 px-6 text-sm">Função</th>
-                      <th className="text-left text-purple-300 font-semibold py-4 px-6 text-sm">Dias</th>
-                      <th className="text-left text-purple-300 font-semibold py-4 px-6 text-sm">Status</th>
-                      <th className="text-left text-purple-300 font-semibold py-4 px-6 text-sm">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-purple-500/10">
-                    {users.map(user => (
-                      <tr key={user.id} className="hover:bg-gray-800/30 transition-colors">
-                        <td className="text-white py-4 px-6 font-medium">{user.email}</td>
-                        <td className="text-gray-300 py-4 px-6 text-sm">
-                          <span className="bg-purple-500/20 text-purple-300 px-3 py-1 rounded-lg text-xs font-medium border border-purple-500/30">
-                            {user.role}
-                          </span>
-                        </td>
-                        <td className="text-white py-4 px-6 font-mono text-sm font-bold">{user.subscription_days}</td>
-                        <td className="py-4 px-6">
-                          <span className={`px-3 py-1 rounded-lg text-xs font-medium border ${
-                            user.is_banned 
-                              ? 'bg-red-500/20 text-red-300 border-red-500/30' 
-                              : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                          }`}>
-                            {user.is_banned ? 'Banido' : 'Ativo'}
-                          </span>
-                        </td>
-                        <td className="py-4 px-6">
-                          <div className="flex gap-2">
-                            {user.is_banned ? (
-                              <button
-                                onClick={() => unbanUser(user.id)}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all shadow-lg"
-                              >
-                                Desbanir
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => banUser(user.id)}
-                                className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all shadow-lg"
-                              >
-                                Banir
-                              </button>
-                            )}
-                            <button
-                              onClick={() => extendSubscription(user.id, 30)}
-                              className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1 shadow-lg"
-                            >
-                              <Plus className="w-3 h-3" />
-                              30d
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'bans' && (
-            <div className="space-y-6">
-              <div className="overflow-hidden rounded-xl border border-purple-500/20 bg-gray-800/30">
-                <table className="w-full">
-                  <thead className="bg-gray-800/50">
-                    <tr>
-                      <th className="text-left text-purple-300 font-semibold py-4 px-6 text-sm">Endereço IP</th>
-                      <th className="text-left text-purple-300 font-semibold py-4 px-6 text-sm">Motivo</th>
-                      <th className="text-left text-purple-300 font-semibold py-4 px-6 text-sm">Até</th>
-                      <th className="text-left text-purple-300 font-semibold py-4 px-6 text-sm">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-purple-500/10">
-                    {bannedIPs.map(ban => (
-                      <tr key={ban.id} className="hover:bg-gray-800/30 transition-colors">
-                        <td className="text-white py-4 px-6 font-mono text-sm font-bold">{ban.ip_address}</td>
-                        <td className="text-gray-300 py-4 px-6 text-sm">{ban.reason}</td>
-                        <td className="text-white py-4 px-6 text-sm">
-                          {ban.banned_until ? new Date(ban.banned_until).toLocaleDateString() : 'Permanente'}
-                        </td>
-                        <td className="py-4 px-6">
-                          <button
-                            onClick={() => {
-                              unbanIP(ban.id);
-                              loadAdminData();
-                            }}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all shadow-lg"
-                          >
-                            Desbanir
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'attempts' && (
-            <div className="space-y-6">
-              <div className="overflow-hidden rounded-xl border border-purple-500/20 bg-gray-800/30">
-                <table className="w-full">
-                  <thead className="bg-gray-800/50">
-                    <tr>
-                      <th className="text-left text-purple-300 font-semibold py-4 px-6 text-sm">Endereço IP</th>
-                      <th className="text-left text-purple-300 font-semibold py-4 px-6 text-sm">Email</th>
-                      <th className="text-left text-purple-300 font-semibold py-4 px-6 text-sm">Resultado</th>
-                      <th className="text-left text-purple-300 font-semibold py-4 px-6 text-sm">Horário</th>
-                      <th className="text-left text-purple-300 font-semibold py-4 px-6 text-sm">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-purple-500/10">
-                    {loginAttempts.map(attempt => (
-                      <tr key={attempt.id} className="hover:bg-gray-800/30 transition-colors">
-                        <td className="text-white py-4 px-6 font-mono text-sm font-bold">{attempt.ip_address}</td>
-                        <td className="text-gray-300 py-4 px-6 text-sm">{attempt.user_email || 'N/A'}</td>
-                        <td className="py-4 px-6">
-                          <span className={`px-3 py-1 rounded-lg text-xs font-medium border ${
-                            attempt.success 
-                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' 
-                              : 'bg-red-500/20 text-red-300 border-red-500/30'
-                          }`}>
-                            {attempt.success ? 'Sucesso' : 'Falhou'}
-                          </span>
-                        </td>
-                        <td className="text-gray-300 py-4 px-6 text-sm">
-                          {new Date(attempt.created_at).toLocaleString()}
-                        </td>
-                        <td className="py-4 px-6">
-                          <button
-                            onClick={() => banIP(attempt.ip_address)}
-                            className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all shadow-lg"
-                          >
-                            Banir IP
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
