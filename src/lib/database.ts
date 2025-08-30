@@ -145,8 +145,32 @@ export const getUserByEmail = async (email: string): Promise<User | null> => {
 };
 
 export const getUsers = async (): Promise<User[]> => {
-  // Sempre retornar dados mock para evitar RLS
-  console.log('Retornando usuários mock');
+  console.log('Buscando usuários...');
+  
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Supabase error:', error);
+        console.log('Fallback para dados mock');
+        return mockUsers;
+      }
+
+      console.log('Usuários carregados do Supabase:', data?.length);
+      return data || [];
+    } catch (error) {
+      console.error('Erro ao buscar usuários no Supabase:', error);
+      console.log('Fallback para dados mock');
+      return mockUsers;
+    }
+  }
+  
+  // Fallback para mock se Supabase não estiver configurado
+  console.log('Supabase não configurado, retornando dados mock');
   return mockUsers;
 };
 
@@ -157,8 +181,38 @@ export const createUser = async (userData: {
   subscription_days?: number;
   allowed_ips?: string[];
 }): Promise<User> => {
-  console.log('Criando usuário mock:', userData.email);
+  console.log('Criando usuário:', userData.email);
   
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .insert({
+          email: userData.email,
+          password_hash: userData.password, // In production, this should be hashed
+          role: userData.role || 'user',
+          subscription_days: userData.subscription_days || 0,
+          allowed_ips: userData.allowed_ips || [],
+          is_banned: false
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+
+      console.log('Usuário criado no Supabase:', data);
+      return data;
+    } catch (error) {
+      console.error('Erro ao criar usuário no Supabase:', error);
+      throw error;
+    }
+  }
+  
+  // Fallback para mock se Supabase não estiver configurado
+  console.log('Supabase não configurado, usando mock');
   const newUser: User = {
     id: crypto.randomUUID(),
     email: userData.email,
@@ -176,8 +230,32 @@ export const createUser = async (userData: {
 };
 
 export const updateUser = async (userId: string, updates: Partial<User>): Promise<User> => {
-  console.log('Atualizando usuário mock:', userId);
+  console.log('Atualizando usuário:', userId);
   
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .update(updates)
+        .eq('id', userId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+
+      console.log('Usuário atualizado no Supabase:', data);
+      return data;
+    } catch (error) {
+      console.error('Erro ao atualizar usuário no Supabase:', error);
+      throw error;
+    }
+  }
+  
+  // Fallback para mock se Supabase não estiver configurado
+  console.log('Supabase não configurado, usando mock');
   const userIndex = mockUsers.findIndex(u => u.id === userId);
   if (userIndex !== -1) {
     mockUsers[userIndex] = { ...mockUsers[userIndex], ...updates, updated_at: new Date().toISOString() };
@@ -188,7 +266,30 @@ export const updateUser = async (userId: string, updates: Partial<User>): Promis
 };
 
 export const deleteUser = async (userId: string): Promise<void> => {
-  console.log('Deletando usuário mock:', userId);
+  console.log('Deletando usuário:', userId);
+  
+  if (isSupabaseConfigured()) {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', userId);
+
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+
+      console.log('Usuário deletado do Supabase');
+      return;
+    } catch (error) {
+      console.error('Erro ao deletar usuário no Supabase:', error);
+      throw error;
+    }
+  }
+  
+  // Fallback para mock se Supabase não estiver configurado
+  console.log('Supabase não configurado, usando mock');
   mockUsers = mockUsers.filter(u => u.id !== userId);
 };
 
